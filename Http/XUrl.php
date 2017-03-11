@@ -15,20 +15,35 @@ class XUrl
 	}
 
 	public function isValid() {
-		// https:80//api/service/v1/app
-		// https:80//api/service/v1/app/slug
+		// DB entry XUrl translates from:
+		// internal global = {service|site}:{version?}//{domain}/{apiRequest}
+		// internal local = {service|site}:{version?}//{apiRequest}
+		// internal same service = :{version?}//{apiRequest}
 
-		// https:80//api/service/v1/resource/app
-		// https:80//api/service/v1/resource/app/type
-		// https:80//api/service/v1/resource/app/type/resource
+		// translates to:
+		// external global = //{service|site}.{domain}/api/{version?}/{apiRequest}
+		// external cdn = //{serviceDomain|siteDomain}/api/{version?}/{apiRequest}
 
-		// https:80//api/service/v1/app/type
-		// https:80//api/service/v1/app/type/resource
-		preg_match('|(https?\:(\d+)?//)?|', $this->uri, $matches);
+		// i.e.
+		// from
+		// contenthouse:{version}//ixavier.com/app/{slug}
+		// contenthouse:{version}//ixavier.com/{type}/{app}
+		// contenthouse:{version}//ixavier.com/{type}/{app}/{slug}
+
+		// to:
+		// external global = //contenthouse.ixavier.com/api/{version}/app/{slug}
+		// external global = //contenthouse.ixavier.com/api/{version}/{type}/{app}
+		// external global = //contenthouse.ixavier.com/api/{version}/{type}/{app}/{slug}
+
+		preg_match( '|(.+)?\:(\d+)?//(.+)|', $this->uri, $matches );
+
+		return $matches;
 	}
 
 	public static function create( $uri ) {
-		return ( new static( $uri ) );
+		$instance = new static( $uri );
+
+		return $instance->isValid() ? $instance : null;
 	}
 
 }
