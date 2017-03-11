@@ -1,13 +1,13 @@
 <?php
 namespace ixavier\Libraries\Http;
 
-class XUrl
+class XURL
 {
 	/** @var string */
 	protected $uri;
 
 	/**
-	 * XUrl constructor.
+	 * XURL constructor.
 	 * @param string $uri
 	 */
 	public function __construct( $uri = null ) {
@@ -15,7 +15,7 @@ class XUrl
 	}
 
 	public function isValid() {
-		// DB entry XUrl translates from:
+		// DB entry XURL translates from:
 		// internal global = {service|site}:{version?}//{domain}/{apiRequest}
 		// internal local = {service|site}:{version?}//{apiRequest}
 		// internal same service = :{version?}//{apiRequest}
