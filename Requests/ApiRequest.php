@@ -6,6 +6,11 @@ use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Log;
 use Psr\Http\Message\ResponseInterface;
 
+/**
+ * Class ApiRequest
+ *
+ * @package ixavier\Libraries\Requests
+ */
 abstract class ApiRequest
 {
 	/** @var array Options that will be sent for each request */
@@ -100,7 +105,7 @@ abstract class ApiRequest
 	 * @param array $queryParams
 	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
 	 */
-	public function index( $queryParams = null ) {
+	public function indexRequest( $queryParams = null ) {
 		return $this->getApiResponse(
 			$this->httpClient->get(
 				$this->prepareUrl( null, $queryParams ),
@@ -116,7 +121,7 @@ abstract class ApiRequest
 	 * @param array $queryParams
 	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
 	 */
-	public function store( $postData = null, $queryParams = null ) {
+	public function storeRequest( $postData = null, $queryParams = null ) {
 		$options = static::$defaultRequestOptions;
 		$options[ 'headers' ][ 'Content-Type' ] = 'application/json';
 		$options[ 'body' ] = json_encode( $postData );
@@ -136,7 +141,7 @@ abstract class ApiRequest
 	 * @param array $queryParams
 	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
 	 */
-	public function show( $slug, $queryParams = null ) {
+	public function showRequest( $slug, $queryParams = null ) {
 		return $this->getApiResponse(
 			$this->httpClient->get(
 				$this->prepareUrl( $slug, $queryParams ),
@@ -153,7 +158,7 @@ abstract class ApiRequest
 	 * @param array $queryParams
 	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
 	 */
-	public function update( $slug, $postData, $queryParams = null ) {
+	public function updateRequest( $slug, $postData, $queryParams = null ) {
 		$options = static::$defaultRequestOptions;
 		$options[ 'headers' ][ 'Content-Type' ] = 'application/json';
 		$options[ 'body' ] = json_encode( $postData );
@@ -173,7 +178,7 @@ abstract class ApiRequest
 	 * @param array $queryParams
 	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
 	 */
-	public function destroy( $slug, $queryParams = null ) {
+	public function destroyRequest( $slug, $queryParams = null ) {
 		return $this->getApiResponse(
 			$this->httpClient->delete(
 				$this->prepareUrl( $slug, $queryParams ),

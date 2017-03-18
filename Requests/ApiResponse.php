@@ -1,6 +1,11 @@
 <?php
 namespace ixavier\Libraries\Requests;
 
+/**
+ * Class ApiResponse
+ *
+ * @package ixavier\Libraries\Requests
+ */
 class ApiResponse
 {
 	public $error = false;

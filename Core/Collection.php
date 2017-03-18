@@ -42,6 +42,30 @@ class Collection implements \IteratorAggregate
 	}
 
 	/**
+	 * Gets the content set with the given $name
+	 *
+	 * @param string $name
+	 * @param mixed $default Returns this if nothing found
+	 * @return mixed
+	 */
+	public function get( $name, $default = null ) {
+		return $this->_contents[ $name ] ?? $default;
+	}
+
+	/**
+	 * Adds and sets $content with a particular $name
+	 *
+	 * @param string $name
+	 * @param mixed $content
+	 * @return $this
+	 */
+	public function set( $name, $content ) {
+		$this->_contents[ $name ] = $content;
+
+		return $this;
+	}
+
+	/**
 	 * @param array $contents
 	 * @return $this Chainnable method
 	 */
