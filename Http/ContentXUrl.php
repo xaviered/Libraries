@@ -15,6 +15,25 @@ class ContentXUrl extends XUrl
 	public $resource;
 
 	/**
+	 * @return array
+	 */
+	public function getRestfulRecordAttributes() {
+		$attributes = [];
+		$matches = RestfulRecord::parseResourceSlug( $this->requestedResource );
+		$attributes[ 'slug' ] = array_pop( $matches );
+		// type is empty, it is app
+		if ( empty( $matches[ 1 ] ) ) {
+			$attributes[ 'slug' ] = $matches[ 0 ];
+			$attributes[ '__path' ] = '/';
+		}
+		else {
+			$attributes[ '__path' ] = implode( '/', $matches );
+		}
+
+		return array_merge( parent::getRestfulRecordAttributes(), $attributes );
+	}
+
+	/**
 	 * Sets object's properties
 	 *
 	 * @param array $properties New properties; only class properties will be set

@@ -3,6 +3,7 @@ namespace ixavier\Libraries\Core;
 
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Log;
+use ixavier\Libraries\Http\ContentXUrl;
 use ixavier\Libraries\Requests\ContentHouseApiRequest;
 
 /**
@@ -39,9 +40,18 @@ class RestfulRecord extends ContentHouseApiRequest
 	/**
 	 * RestfulRecord constructor.
 	 *
-	 * @param array|object $attributes Pre-populate with attributes
+	 * @param array|object|ContentXUrl $attributes Pre-populate with attributes
+	 * Attributes can be:
+	 * __url    Base URL to make the request
+	 * __path   Path to make requests
+	 * type     Type of object
+	 * slug     Slug of resource.
+	 *          Can also be full request, therefore `__path`, and `type` will be determined based on this.
 	 */
 	public function __construct( $attributes = [] ) {
+		if ( is_object( $attributes ) && is_subclass_of( $attributes, ContentXUrl::class ) ) {
+			$attributes = $attributes->getRestfulRecordAttributes();
+		}
 		if ( is_object( $attributes ) ) {
 			$attributes = get_object_vars( $attributes );
 		}
@@ -74,9 +84,11 @@ class RestfulRecord extends ContentHouseApiRequest
 			$path = $attributes[ '__path' ];
 		}
 
+		$urlBase = $attributes[ '__url' ] ?? null;
+
 		$this->setAttributes( static::cleanAttributes( $attributes ) );
 
-		parent::__construct( $path );
+		parent::__construct( $urlBase, $path );
 	}
 
 	/**
@@ -200,9 +212,9 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
-	 * Given Resource slug, will parse out its app, type and actual slug
+	 * Given Resource path, will parse out its app, type and slug
 	 *
-	 * @param string $slug
+	 * @param string $path
 	 * @param array $defaults Array with default values to return if nothing found
 	 * @return array i.e.
 	 * [
@@ -211,23 +223,31 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * 2 => true slug of resource
 	 * ]
 	 */
-	public static function parseResourceSlug( $slug, $defaults = [ 'app' => null, 'type' => null ] ) {
-		if ( strpos( $slug, '/' ) !== FALSE ) {
+	public static function parseResourceSlug( $path, $defaults = [ 'app' => null, 'type' => null ] ) {
+		// A good URL will not spaces
+		$path = trim( $path );
+
+		// no app, type, or resource
+		if ( $path == '/' ) {
+			$path = null;
+		}
+
+		if ( strpos( $path, '/' ) !== FALSE ) {
 			$regex = sprintf(
 				"|(?=/(%s)(?=/(%s)(?=/(%s))?)?)?|",
 				RestfulRecord::SLUG_REGEX,
 				RestfulRecord::RESOURCE_TYPE_REGEX,
 				RestfulRecord::SLUG_REGEX
 			);
-			preg_match( $regex, $slug, $matches );
+			preg_match( $regex, $path, $matches );
 			$matches = [
 				'app' => $matches[ 1 ] ?? null,
 				'type' => $matches[ 2 ] ?? null,
-				'resource' => $matches[ 3 ] ?? ( isset( $matches[ 1 ] ) ? null : $slug ),
+				'resource' => $matches[ 3 ] ?? ( isset( $matches[ 1 ] ) ? null : $path ),
 			];
 		}
 		else {
-			$matches = [ 'resource' => $slug ];
+			$matches = [ 'resource' => $path ];
 		}
 
 		return array_values( array_merge( $defaults, $matches ) );

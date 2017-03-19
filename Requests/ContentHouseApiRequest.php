@@ -8,7 +8,16 @@ namespace ixavier\Libraries\Requests;
  */
 class ContentHouseApiRequest extends ApiRequest
 {
-	public function __construct( $path = '/' ) {
-		parent::__construct( config( 'services.content.url' ), $path );
+	/**
+	 * ContentHouseApiRequest constructor.
+	 *
+	 * @param string $urlBase
+	 * @param string $path
+	 */
+	public function __construct( $urlBase = null, $path = '/' ) {
+		if ( empty( $urlBase ) ) {
+			$urlBase = config( 'services.content.url' );
+		}
+		parent::__construct( $urlBase, $path );
 	}
 }
