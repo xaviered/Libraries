@@ -17,6 +17,7 @@ class RestfulRecord extends ContentHouseApiRequest
 {
 	use IterableAttributes {
 		getAttributes as IterableAttributes__getAttributes;
+		setAttributes as IterableAttributes__setAttributes;
 	}
 
 	/** @var string RegEx to use on slugs */
@@ -49,10 +50,26 @@ class RestfulRecord extends ContentHouseApiRequest
 	 *          Can also be full request, therefore `__path`, and `type` will be determined based on this.
 	 */
 	public function __construct( $attributes = [] ) {
+		parent::__construct();
+		$this->setAttributes( $attributes );
+	}
+
+	/**
+	 * @param array|object|ContentXUrl $attributes Pre-populate with attributes
+	 * Attributes can be:
+	 * __url    Base URL to make the request
+	 * __path   Path to make requests
+	 * type     Type of object
+	 * slug     Slug of resource.
+	 *          Can also be full request, therefore `__path`, and `type` will be determined based on this.
+	 *
+	 * @return array Fixed attributes
+	 */
+	public static function fixAttributes( $attributes ) {
 		if ( is_object( $attributes ) && is_subclass_of( $attributes, ContentXUrl::class ) ) {
 			$attributes = $attributes->getRestfulRecordAttributes();
 		}
-		if ( is_object( $attributes ) ) {
+		else if ( is_object( $attributes ) ) {
 			$attributes = get_object_vars( $attributes );
 		}
 		else if ( is_string( $attributes ) ) {
@@ -64,7 +81,7 @@ class RestfulRecord extends ContentHouseApiRequest
 
 		// get path from slug
 		if ( empty( $attributes[ '__path' ] ) ) {
-			$path = '/';
+			$attributes[ '__path' ] = '/';
 			// precedence for values: slug, attributes, else
 			$defaults = [
 				'app' => $attributes[ '__app' ] ?? null,
@@ -77,18 +94,30 @@ class RestfulRecord extends ContentHouseApiRequest
 				$attributes[ 'slug' ] = $matches[ 0 ];
 			}
 			else {
-				$path = '/' . implode( '/', $matches );
+				$attributes[ '__path' ] = '/' . implode( '/', $matches );
 			}
 		}
-		else {
-			$path = $attributes[ '__path' ];
-		}
 
-		$urlBase = $attributes[ '__url' ] ?? null;
+		$attributes[ '__url' ] = $attributes[ '__url' ] ?? null;
 
-		$this->setAttributes( static::cleanAttributes( $attributes ) );
+		return $attributes;
+	}
 
-		parent::__construct( $urlBase, $path );
+	/**
+	 * Cleans attributes before adding them
+	 *
+	 * @param array $attributes
+	 * @return $this Chainnable method
+	 */
+	public function setAttributes( $attributes ) {
+		$attributes = static::fixAttributes( $attributes );
+
+		$this->setUrlBase( $attributes[ '__url' ] );
+		$this->setPath( $attributes[ '__path' ] );
+		$attributes = static::cleanAttributes( $attributes );
+
+
+		return $this->IterableAttributes__setAttributes( $attributes );
 	}
 
 	/**
@@ -259,9 +288,10 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @param array $attributes
 	 * @return array
 	 */
-	public static function cleanAttributes( $attributes ) {
+	public static function cleanAttributes( array $attributes ) {
 		unset( $attributes[ '__app' ] );
 		unset( $attributes[ '__path' ] );
+		unset( $attributes[ '__url' ] );
 
 		return $attributes;
 	}
@@ -300,8 +330,10 @@ class RestfulRecord extends ContentHouseApiRequest
 		if ( !isset( static::$_collections[ $cachedKey ] ) ) {
 			$col = new Collection();
 
-			$recordTmp = new RestfulRecord( $attributes );
-			$response = $recordTmp->indexRequest( $recordTmp->getAttributes() );
+			$attributes = RestfulRecord::fixAttributes($attributes);
+			$recordTmp = new RestfulRecord($attributes);
+			$attributes = RestfulRecord::cleanAttributes($attributes);
+			$response = $recordTmp->indexRequest( $attributes );
 			if ( !$response->error ) {
 				foreach ( $response->data as $recordData ) {
 					if ( $createFunction ) {

@@ -30,6 +30,8 @@ class ContentXUrl extends XUrl
 			$attributes[ '__path' ] = implode( '/', $matches );
 		}
 
+		$attributes[ '__url' ] = $this->serviceUrl;
+
 		return array_merge( parent::getRestfulRecordAttributes(), $attributes );
 	}
 

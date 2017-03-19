@@ -41,7 +41,7 @@ abstract class ApiRequest
 	 * @param string $urlBase
 	 * @param string $path
 	 */
-	public function __construct( $urlBase, $path = '/' ) {
+	public function __construct( $urlBase = null, $path = '/' ) {
 		$this->httpClient = new HttpClient();
 		$this->setUrlBase( $urlBase );
 		$this->setPath( $path );

@@ -9,15 +9,14 @@ namespace ixavier\Libraries\Requests;
 class ContentHouseApiRequest extends ApiRequest
 {
 	/**
-	 * ContentHouseApiRequest constructor.
-	 *
-	 * @param string $urlBase
-	 * @param string $path
+	 * @param mixed $urlBase
+	 * @return $this Chainnable method
 	 */
-	public function __construct( $urlBase = null, $path = '/' ) {
+	public function setUrlBase( $urlBase ) {
 		if ( empty( $urlBase ) ) {
 			$urlBase = config( 'services.content.url' );
 		}
-		parent::__construct( $urlBase, $path );
+
+		return parent::setUrlBase( $urlBase );
 	}
 }

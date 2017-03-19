@@ -42,11 +42,11 @@ trait IterableAttributes
 	}
 
 	/**
-	 * @param array $_attributes
+	 * @param array $attributes
 	 * @return $this Chainnable method
 	 */
-	public function setAttributes( array $_attributes ) {
-		$this->_attributes = $_attributes;
+	public function setAttributes( array $attributes ) {
+		$this->_attributes = $attributes;
 
 		return $this;
 	}
