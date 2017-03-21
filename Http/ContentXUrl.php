@@ -17,7 +17,7 @@ class ContentXUrl extends XUrl
 	/**
 	 * @return array
 	 */
-	public function getRestfulRecordAttributes() {
+	public function getRestfulRecordAttributes( $clean = false ) {
 		$attributes = [];
 		$matches = RestfulRecord::parseResourceSlug( $this->requestedResource );
 		$attributes[ 'slug' ] = array_pop( $matches );
@@ -25,14 +25,21 @@ class ContentXUrl extends XUrl
 		if ( empty( $matches[ 1 ] ) ) {
 			$attributes[ 'slug' ] = $matches[ 0 ];
 			$attributes[ '__path' ] = '/';
+			$attributes[ 'type' ] = null;
 		}
 		else {
-			$attributes[ '__path' ] = implode( '/', $matches );
+			$attributes[ 'type' ] = $matches[ 1 ];
+			$attributes[ '__path' ] = '/' . implode( '/', $matches );
 		}
 
 		$attributes[ '__url' ] = $this->serviceUrl;
 
-		return array_merge( parent::getRestfulRecordAttributes(), $attributes );
+		$attributes = array_merge( parent::getRestfulRecordAttributes(), $attributes );
+		if ( $clean ) {
+			$attributes = RestfulRecord::cleanAttributes( $attributes );
+		}
+
+		return $attributes;
 	}
 
 	/**

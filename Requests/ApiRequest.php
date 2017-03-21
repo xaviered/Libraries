@@ -89,7 +89,7 @@ abstract class ApiRequest
 	 * @return string
 	 */
 	public function prepareUrl( $postPath = null, $queryParams = null ) {
-		$url = $this->getUrlBase() . $this->getPath() . '/' . ( $postPath ? ltrim( $postPath, '/' ) : '' );
+		$url = rtrim( $this->getUrlBase() . $this->getPath() . '/' . ( $postPath ? ltrim( $postPath, '/' ) : '' ), '/' );
 		if ( !is_null( $queryParams ) && is_array( $queryParams ) ) {
 			$url = rtrim( $url, '?' ) . '?' . http_build_query( $queryParams );
 		}

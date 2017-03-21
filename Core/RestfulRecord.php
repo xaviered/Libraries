@@ -2,10 +2,13 @@
 namespace ixavier\Libraries\Core;
 
 use GuzzleHttp\Psr7\Response;
-use Illuminate\Support\Facades\Log;
 use ixavier\Libraries\Http\ContentXUrl;
+use ixavier\Libraries\Http\XUrl;
 use ixavier\Libraries\Requests\ContentHouseApiRequest;
 
+// @todo: Add ability to do multiple requests at the same time, by using $this->newQuery()->where($attributes)->get()
+// For immediate calls, we can also do $this->newQuery()->get($attributes)
+//
 /**
  * Class RestfulRecord
  *
@@ -38,6 +41,9 @@ class RestfulRecord extends ContentHouseApiRequest
 	/** @var Collection[] memory cache for collections */
 	protected static $_collections = [];
 
+	/** @var array|XUrl|string */
+	private $__fixedAttributes;
+
 	/**
 	 * RestfulRecord constructor.
 	 *
@@ -55,8 +61,35 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
-	 * @param array|object|ContentXUrl $attributes Pre-populate with attributes
-	 * Attributes can be:
+	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
+	 * @return $this
+	 */
+	public static function query( $attributes = [] ) {
+		return ( new static( $attributes ) )->newQuery();
+	}
+
+	/**
+	 * Gets new query
+	 * @return $this
+	 */
+	public function newQuery() {
+		return $this;
+	}
+
+	/**
+	 * @todo: Need to implement this so it prepares for multiple requests
+	 * @param array $attributes
+	 * @return $this
+	 */
+	public function where( $attributes = [] ) {
+		return $this;
+	}
+
+	/**
+	 * @param string|array|object|XUrl $attributes Pre-populate with attributes
+	 * String will be slug
+	 *
+	 * Array|object can have:
 	 * __url    Base URL to make the request
 	 * __path   Path to make requests
 	 * type     Type of object
@@ -66,7 +99,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return array Fixed attributes
 	 */
 	public static function fixAttributes( $attributes ) {
-		if ( is_object( $attributes ) && is_subclass_of( $attributes, ContentXUrl::class ) ) {
+		if ( is_object( $attributes ) && ( is_a( $attributes, ContentXUrl::class ) || is_subclass_of( $attributes, ContentXUrl::class ) ) ) {
 			$attributes = $attributes->getRestfulRecordAttributes();
 		}
 		else if ( is_object( $attributes ) ) {
@@ -110,14 +143,39 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return $this Chainnable method
 	 */
 	public function setAttributes( $attributes ) {
-		$attributes = static::fixAttributes( $attributes );
+		$this->__fixedAttributes = $attributes = static::fixAttributes( $attributes );
 
 		$this->setUrlBase( $attributes[ '__url' ] );
 		$this->setPath( $attributes[ '__path' ] );
 		$attributes = static::cleanAttributes( $attributes );
 
-
 		return $this->IterableAttributes__setAttributes( $attributes );
+	}
+
+	/**
+	 * @return array|XUrl|string
+	 */
+	public function getFixedAttributes() {
+		return $this->__fixedAttributes;
+	}
+
+	/**
+	 * API array representation of this model
+	 *
+	 * @param bool $withKeys Show keys for Collections
+	 * @param bool $hideLink Hide self link in Models
+	 * @param bool $hideSelfLinkQuery Don't add query info to self link for Models
+	 * @return array
+	 */
+	public function toApiArray( $withKeys = true, $hideLink = false, $hideSelfLinkQuery = false ) {
+		$modelArray = [];
+		$modelArray[ 'data' ] = $this->getAttributes();
+
+		if ( !$hideLink ) {
+			$modelArray[ 'links' ][ 'self' ] = $this->prepareUrl( $this->slug );
+		}
+
+		return $modelArray;
 	}
 
 	/**
@@ -132,33 +190,38 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
-	 * Finds one record with the given criteria
+	 * Finds records with the given criteria
 	 *
-	 * @param string|array $slugOrQuery
+	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
 	 * @return Collection
 	 */
-	public static function find( $slugOrQuery ) {
-		return static::_find(
-			$slugOrQuery,
-			function( $record ) {
-				return static::create( $record->data );
+	public function get( $attributes = [] ) {
+		return $this->_find(
+			$attributes,
+			function( $record, $creatorAttributes ) {
+				$record = [ $record ];
+				Common::array_walk_recursive( $record, function( &$value ) {
+					if ( is_object( $value ) && isset( $value->data ) && isset( $value->links->self ) ) {
+						$value->data->apiUrl = $value->links->self;
+						$value = $value->data;
+					}
+				} );
+				$attributes = array_merge( $creatorAttributes, (array)reset( $record ) );
+
+				return static::create( $attributes );
 			}
 		);
 	}
 
 	/**
-	 * Gets first record found
+	 * Same as get(), but will get first item
 	 *
-	 * @param string|array $slugOrQuery
-	 * @return RestfulRecord|App
+	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
+	 * @return RestfulRecord
 	 */
-	public static function findOne( $slugOrQuery ) {
-		return static::_findOne(
-			$slugOrQuery,
-			function( $record ) {
-				return static::create( $record->data );
-			}
-		);
+	public function find( $attributes = [] ) {
+		// @todo: Fix arguments once `where` is working
+		return $this->where( $attributes )->get( $attributes )->first();
 	}
 
 	/**
@@ -292,6 +355,10 @@ class RestfulRecord extends ContentHouseApiRequest
 		unset( $attributes[ '__app' ] );
 		unset( $attributes[ '__path' ] );
 		unset( $attributes[ '__url' ] );
+		unset( $attributes[ 'apiUrl' ] );
+		if ( array_key_exists( 'slug', $attributes ) && $attributes[ 'slug' ] === null ) {
+			unset( $attributes[ 'slug' ] );
+		}
 
 		return $attributes;
 	}
@@ -299,45 +366,49 @@ class RestfulRecord extends ContentHouseApiRequest
 	/**
 	 * Gets the first record with the given criteria
 	 *
-	 * @param string $path
-	 * @param string|array $attributes
-	 * @param callable $createFunction Signature: function(\StdClass $record) : static
+	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
+	 * @param callable $createFunction Signature: function(\StdClass $record, array $creatorAttributes) : static
 	 * @return static
 	 */
-	protected static function _findOne( $attributes, $createFunction = null ) {
+	protected function _findOne( $attributes = [], $createFunction = null ) {
 		if ( is_string( $attributes ) ) {
 			$attributes = [ 'slug' => $attributes ];
 		}
-		$attributes[ 'page_size' ] = 1;
 
-		return static::_find( $attributes, $createFunction )->rewind();
+		if ( is_array( $attributes ) ) {
+			$attributes[ 'page_size' ] = 1;
+		}
+
+		return $this->_find( $attributes, $createFunction )->rewind();
 	}
 
 	/**
 	 * Finds records with the given criteria
 	 *
-	 * @param string $path
-	 * @param string|array $attributes
-	 * @param callable $createFunction Signature: function(\StdClass $record) : static
+	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
+	 * @param callable $createFunction Signature: function(\StdClass $record, array $creatorAttributes) : static
 	 * @return Collection
 	 */
-	protected static function _find( $attributes, $createFunction = null ) {
+	protected function _find( $attributes = [], $createFunction = null ) {
 		if ( is_string( $attributes ) ) {
 			$attributes = [ 'slug' => $attributes ];
 		}
 
-		$cachedKey = serialize( $attributes );
+		// get original attributes from builder
+		$fixedAttributes = $this->getFixedAttributes();
+		// prepare attributes
+		$attributes = array_merge( $fixedAttributes, RestfulRecord::fixAttributes( $attributes ) );
+
+		$cachedKey = serialize( array_merge( $fixedAttributes, $attributes ) );
 		if ( !isset( static::$_collections[ $cachedKey ] ) ) {
 			$col = new Collection();
 
-			$attributes = RestfulRecord::fixAttributes($attributes);
-			$recordTmp = new RestfulRecord($attributes);
-			$attributes = RestfulRecord::cleanAttributes($attributes);
-			$response = $recordTmp->indexRequest( $attributes );
+			$attributes = RestfulRecord::cleanAttributes( $attributes );
+			$response = $this->indexRequest( $attributes );
 			if ( !$response->error ) {
 				foreach ( $response->data as $recordData ) {
 					if ( $createFunction ) {
-						$recordData = call_user_func_array( $createFunction, [ $recordData ] );
+						$recordData = call_user_func_array( $createFunction, [ $recordData, $fixedAttributes ] );
 					}
 					$col->append( $recordData );
 				}

@@ -1,6 +1,7 @@
 <?php
 namespace ixavier\Libraries\Core;
 
+// @todo: Use use Illuminate\Support\Collection instead;
 /**
  * Class Collection
  *
@@ -26,12 +27,59 @@ class Collection implements \IteratorAggregate
 		$this->setContents( $contents );
 	}
 
+	/** @alias self::getContents() */
+	public function all() {
+		return $this->getContents();
+	}
+
+	// @todo: add pagination
+	/**
+	 * API array representation of this model
+	 *
+	 * @param bool $withKeys Show keys for Collections
+	 * @param bool $hideLink Hide self link in Models
+	 * @param bool $hideSelfLinkQuery Don't add query info to self link for Models
+	 * @return array
+	 */
+	public function toApiArray( $withKeys = true, $hideLink = false, $hideSelfLinkQuery = false ) {
+		$count = 0;
+		$modelsArray = [];
+		$paginator = $this->getContents();
+		foreach ( $paginator as $itemKey => $item ) {
+			$key = ( $withKeys ? $itemKey : $count );
+			if ( is_object( $item ) && method_exists( $item, 'toApiArray' ) ) {
+				$item = $item->toApiArray( $withKeys, $hideLink, $hideSelfLinkQuery );
+			}
+			$modelsArray[ 'data' ][ $key ] = $item;
+			$count++;
+		}
+		$modelsArray[ 'count' ] = $this->count();
+
+		return $modelsArray;
+	}
+
 	/**
 	 * Basic iterator object
 	 * @return ObjectIterator
 	 */
 	public function getIterator() {
 		return new ObjectIterator( $this->_contents );
+	}
+
+	/**
+	 * Total number of contents
+	 * @return int
+	 */
+	public function count() {
+		return count( $this->_contents );
+	}
+
+	/**
+	 * @alias self::rewind()
+	 * @return RestfulRecord|mixed
+	 */
+	public function first() {
+		return $this->rewind();
 	}
 
 	/**

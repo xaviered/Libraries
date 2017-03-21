@@ -87,4 +87,20 @@ class Common
 	public static function getClassNamespace( $class ) {
 		return str_replace( "/", "\\", dirname( str_replace( "\\", "/", $class ) ) );
 	}
+
+	/**
+	 * Same as PHP's array_walk_recursive, but works with objects as well
+	 * @param array|object $array
+	 * @param \Closure $closure
+	 * @param mixed $userData
+	 */
+	public static function array_walk_recursive( &$array, $closure, $userData = null ) {
+		foreach ( $array as $key => &$value ) {
+			$closure( $value, $key, $userData );
+
+			if ( is_object( $value ) || is_array( $value ) ) {
+				static::array_walk_recursive( $value, $closure, $userData );
+			}
+		}
+	}
 }

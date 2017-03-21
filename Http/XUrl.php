@@ -1,10 +1,11 @@
 <?php
 namespace ixavier\Libraries\Http;
 
-use App\Http\Request;
 use Illuminate\Support\Str;
 use ixavier\Libraries\Core\Common;
+use Symfony\Component\HttpFoundation\ParameterBag;
 
+// @todo: Add a serialize method to spit out full URL
 /**
  * Class XUrl
  *
@@ -70,6 +71,25 @@ class XUrl
 	 */
 	public function isValid() {
 		return !empty( $this->service );
+	}
+
+	/**
+	 * Gets a new ParameterBag from current query
+	 * @return ParameterBag
+	 */
+	public function getQueryParameterBag() {
+		$params = [];
+		if ( !empty( $this->query ) ) {
+			$query = explode( '&', $this->query );
+
+			foreach ( $query as $param ) {
+				list( $name, $value ) = explode( '=', $param );
+				// @todo: what about ?field[]=one&field[]=two
+				$params[ urldecode( $name ) ] = urldecode( $value );
+			}
+		}
+
+		return new ParameterBag( $params );
 	}
 
 	/**
@@ -242,7 +262,7 @@ class XUrl
 
 		// fix name
 		if ( empty( $purl[ 'service' ] ) ) {
-			$purl[ 'service' ] = config( 'app.schemeName' );
+			$purl[ 'service' ] = config( 'app.serviceName' );
 		}
 
 		// fix requested resource from API request
@@ -296,7 +316,7 @@ class XUrl
 		preg_match( '|([a-z][a-z0-9\_\-]+)?\:(?=v?(\d+))?//([a-z][a-z0-9\_\-]{2}[a-z0-9\_\-\.]*)?(/.*)|', $url, $matches );
 
 		// use default service if no service provided
-		$pxurl[ 'service' ] = !empty( $matches[ 1 ] ) ? $matches[ 1 ] : config( 'app.schemeName' );
+		$pxurl[ 'service' ] = !empty( $matches[ 1 ] ) ? $matches[ 1 ] : config( 'app.serviceName' );
 		$pxurl[ 'version' ] = intval( $matches[ 2 ] ?? null );
 		$pxurl[ 'domain' ] = $matches[ 3 ] ?? null;
 		$pxurl[ 'request' ] = !empty( $matches[ 4 ] ) ? $matches[ 4 ] : '/';
@@ -330,7 +350,7 @@ class XUrl
 
 		// fix version
 		if ( empty( $pxurl[ 'version' ] ) ) {
-			$pxurl[ 'version' ] = $this->getVersion( $pxurl[ 'service' ], $pxurl[ 'path' ] );
+			$pxurl[ 'version' ] = $this->getVersion( $pxurl[ 'service' ], $pxurl[ 'path' ] ?? '/' );
 		}
 
 		return $pxurl;
