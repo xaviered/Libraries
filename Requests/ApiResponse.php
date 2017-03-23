@@ -14,8 +14,6 @@ class ApiResponse
 
 	public $data = [];
 
-	public $links = [];
-
 	public $statusCode;
 
 	public function __toString() {

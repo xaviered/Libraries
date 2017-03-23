@@ -3,6 +3,7 @@ namespace ixavier\Libraries\Http;
 
 use Illuminate\Support\Str;
 use ixavier\Libraries\Core\Common;
+use ixavier\Libraries\Core\RestfulRecord;
 use Symfony\Component\HttpFoundation\ParameterBag;
 
 // @todo: Add a serialize method to spit out full URL
@@ -106,7 +107,7 @@ class XUrl
 			if ( Str::startsWith( $url, 'http' ) ) {
 				$purl = $this->parseUrl( $url );
 			}
-			else if ( Str::contains( $url, '://' ) ) {
+			else if ( preg_match( '|^(' . RestfulRecord::SLUG_REGEX . ')?\://|', $url ) ) {
 				$purl = $this->parseXUrl( $url );
 			}
 

@@ -42,6 +42,18 @@ trait IterableAttributes
 	}
 
 	/**
+	 * @param string $key
+	 * @param mixed $value
+	 * @return $this Chainnable method
+	 * @internal param array $attributes
+	 */
+	public function setAttribute( $key, $value ) {
+		$this->_attributes[ $key ] = $value;
+
+		return $this;
+	}
+
+	/**
 	 * @param array $attributes
 	 * @return $this Chainnable method
 	 */

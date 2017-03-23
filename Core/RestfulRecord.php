@@ -19,7 +19,6 @@ use ixavier\Libraries\Requests\ContentHouseApiRequest;
 class RestfulRecord extends ContentHouseApiRequest
 {
 	use IterableAttributes {
-		getAttributes as IterableAttributes__getAttributes;
 		setAttributes as IterableAttributes__setAttributes;
 	}
 
@@ -35,10 +34,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	/** @var bool True if already loaded */
 	protected $_loaded = false;
 
-	/** @var Collection */
-	protected $_relationshipsCollection;
-
-	/** @var Collection[] memory cache for collections */
+	/** @var ModelCollection[] memory cache for collections */
 	protected static $_collections = [];
 
 	/** @var array|XUrl|string */
@@ -86,6 +82,43 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
+	 * Given a path as /{app}/{type}/{slug} will return an array with [$app, $type, $slug]
+	 * Not all parts need to be in the $path, and they will be null if they are not there.
+	 *
+	 * @param string $path
+	 * @return array
+	 */
+	public static function fixAttributesFromPath( $path, $keepSlug = false ) {
+		$attributes = [];
+		$matches = RestfulRecord::parseResourceSlug( $path, [], true );
+		// resource request
+		if ( !empty( $matches[ 2 ] ) ) {
+			$attributes[ 'slug' ] = $keepSlug ? $matches[ 2 ] : null;
+			$attributes[ 'type' ] = $matches[ 1 ];
+			$attributes[ '__path' ] = '/' . implode( '/', $matches );
+		}
+		// list items of given type request
+		else if ( !empty( $matches[ 1 ] ) ) {
+			$attributes[ 'slug' ] = null;
+			array_pop( $matches );
+			$attributes[ 'type' ] = $matches[ 1 ];
+			$attributes[ '__path' ] = '/' . implode( '/', $matches );
+		}
+		// app request
+		else if ( !empty( $matches[ 0 ] ) ) {
+			$attributes[ 'slug' ] = $keepSlug ? $matches[ 0 ] : null;
+			$attributes[ '__path' ] = '/';
+			$attributes[ 'type' ] = null;
+		}
+		// list all apps request
+		else {
+			$attributes[ '__path' ] = '';
+		}
+
+		return $attributes;
+	}
+
+	/**
 	 * @param string|array|object|XUrl $attributes Pre-populate with attributes
 	 * String will be slug
 	 *
@@ -99,7 +132,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return array Fixed attributes
 	 */
 	public static function fixAttributes( $attributes ) {
-		if ( is_object( $attributes ) && ( is_a( $attributes, ContentXUrl::class ) || is_subclass_of( $attributes, ContentXUrl::class ) ) ) {
+		if ( is_object( $attributes ) && ( $attributes instanceof XUrl ) ) {
 			$attributes = $attributes->getRestfulRecordAttributes();
 		}
 		else if ( is_object( $attributes ) ) {
@@ -114,21 +147,13 @@ class RestfulRecord extends ContentHouseApiRequest
 
 		// get path from slug
 		if ( empty( $attributes[ '__path' ] ) ) {
-			$attributes[ '__path' ] = '/';
-			// precedence for values: slug, attributes, else
-			$defaults = [
-				'app' => $attributes[ '__app' ] ?? null,
-				'type' => $attributes[ 'type' ] ?? null
-			];
-			$matches = RestfulRecord::parseResourceSlug( $attributes[ 'slug' ] ?? '', $defaults );
-			$attributes[ 'slug' ] = array_pop( $matches );
-			// record is an app, as type is empty in /{app}/{type}/{resource}
-			if ( empty( $matches[ 1 ] ) ) {
-				$attributes[ 'slug' ] = $matches[ 0 ];
-			}
-			else {
-				$attributes[ '__path' ] = '/' . implode( '/', $matches );
-			}
+			$fixedAttributes = static::fixAttributesFromPath( $attributes[ 'slug' ] ?? '' );
+			$attributes = array_merge( $attributes, $fixedAttributes );
+		}
+
+		// this is a resource, update path!
+		if ( isset( $attributes[ 'data' ] ) && isset( $attributes[ 'data' ]->slug ) && count( explode( '/', trim( $attributes[ '__path' ], '/' ) ) ) != 3 ) {
+			$attributes[ '__path' ] .= '/' . $attributes[ 'data' ]->slug;
 		}
 
 		$attributes[ '__url' ] = $attributes[ '__url' ] ?? null;
@@ -143,6 +168,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return $this Chainnable method
 	 */
 	public function setAttributes( $attributes ) {
+		$oa = $attributes;
 		$this->__fixedAttributes = $attributes = static::fixAttributes( $attributes );
 
 		$this->setUrlBase( $attributes[ '__url' ] );
@@ -162,20 +188,13 @@ class RestfulRecord extends ContentHouseApiRequest
 	/**
 	 * API array representation of this model
 	 *
-	 * @param bool $withKeys Show keys for Collections
-	 * @param bool $hideLink Hide self link in Models
+	 * @param int $relationsDepth Current depth of relations loaded. Default = 1
 	 * @param bool $hideSelfLinkQuery Don't add query info to self link for Models
 	 * @return array
 	 */
-	public function toApiArray( $withKeys = true, $hideLink = false, $hideSelfLinkQuery = false ) {
-		$modelArray = [];
-		$modelArray[ 'data' ] = $this->getAttributes();
-
-		if ( !$hideLink ) {
-			$modelArray[ 'links' ][ 'self' ] = $this->prepareUrl( $this->slug );
-		}
-
-		return $modelArray;
+	public function toApiArray( $relationsDepth = 0, $hideSelfLinkQuery = false ) {
+		// @todo: Handle loading relations
+		return $this->getAttributes();
 	}
 
 	/**
@@ -193,20 +212,13 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * Finds records with the given criteria
 	 *
 	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
-	 * @return Collection
+	 * @return ModelCollection
 	 */
 	public function get( $attributes = [] ) {
 		return $this->_find(
 			$attributes,
 			function( $record, $creatorAttributes ) {
-				$record = [ $record ];
-				Common::array_walk_recursive( $record, function( &$value ) {
-					if ( is_object( $value ) && isset( $value->data ) && isset( $value->links->self ) ) {
-						$value->data->apiUrl = $value->links->self;
-						$value = $value->data;
-					}
-				} );
-				$attributes = array_merge( $creatorAttributes, (array)reset( $record ) );
+				$attributes = array_merge( $creatorAttributes, (array)$record );
 
 				return static::create( $attributes );
 			}
@@ -220,6 +232,14 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return RestfulRecord
 	 */
 	public function find( $attributes = [] ) {
+		if ( is_string( $attributes ) ) {
+			$attributes = [ 'slug' => $attributes ];
+		}
+
+		if ( is_array( $attributes ) ) {
+			$attributes[ 'page_size' ] = 1;
+		}
+
 		// @todo: Fix arguments once `where` is working
 		return $this->where( $attributes )->get( $attributes )->first();
 	}
@@ -242,61 +262,10 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
-	 * Loads from slug
-	 *
-	 * @param bool $force
-	 * @return $this Chainnable method
-	 */
-	public function load( $force = false ) {
-		if ( !empty( $this->slug ) && ( $force || !$this->_loaded ) ) {
-			$record = $this;
-			static::_findOne(
-				$this->slug,
-				function( $recordData ) use ( $record ) {
-					return $record->setAttributes( $recordData->data )->setLoaded( true );
-				}
-			);
-
-			if ( !$record->isLoaded() ) {
-				$this->___error = $this->getLastResponse();
-			}
-		}
-
-		return $this;
-	}
-
-	public function loadRelationships() {
-		$this->load();
-
-		if ( empty( $this->_relationshipsCollection ) ) {
-			$this->_relationshipsCollection = new Collection();
-			if ( $this->relationships ) {
-				// @todo: Revise if it doesn't overlap with functionality
-				foreach ( $this->relationships as $rKey => $rData ) {
-					$this->_relationshipsCollection->set( $rKey, $this->relationships[ $rKey ] );
-				}
-			}
-		}
-	}
-
-	/**
-	 * Gets all attributes
-	 *
-	 * @return mixed
-	 */
-	public function getAttributes() {
-		$this->load();
-
-		return $this->IterableAttributes__getAttributes();
-	}
-
-	/**
-	 * @return Collection
+	 * @return ModelCollection
 	 */
 	public function getRelationships() {
-		$this->loadRelationships();
-
-		return $this->_relationshipsCollection;
+		return new ModelCollection( $this->relations ?? [] );
 	}
 
 	public function __toString() {
@@ -315,7 +284,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * 2 => true slug of resource
 	 * ]
 	 */
-	public static function parseResourceSlug( $path, $defaults = [ 'app' => null, 'type' => null ] ) {
+	public static function parseResourceSlug( $path, $defaults = [ 'app' => null, 'type' => null ], $onlySlugs = false ) {
 		// A good URL will not spaces
 		$path = trim( $path );
 
@@ -342,6 +311,14 @@ class RestfulRecord extends ContentHouseApiRequest
 			$matches = [ 'resource' => $path ];
 		}
 
+		if ( $onlySlugs ) {
+			array_walk( $matches, function( &$ele ) {
+				if ( $ele instanceof RestfulRecord ) {
+					$ele = $ele->slug ?? '';
+				}
+			} );
+		}
+
 		return array_values( array_merge( $defaults, $matches ) );
 	}
 
@@ -355,7 +332,6 @@ class RestfulRecord extends ContentHouseApiRequest
 		unset( $attributes[ '__app' ] );
 		unset( $attributes[ '__path' ] );
 		unset( $attributes[ '__url' ] );
-		unset( $attributes[ 'apiUrl' ] );
 		if ( array_key_exists( 'slug', $attributes ) && $attributes[ 'slug' ] === null ) {
 			unset( $attributes[ 'slug' ] );
 		}
@@ -364,30 +340,11 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
-	 * Gets the first record with the given criteria
-	 *
-	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
-	 * @param callable $createFunction Signature: function(\StdClass $record, array $creatorAttributes) : static
-	 * @return static
-	 */
-	protected function _findOne( $attributes = [], $createFunction = null ) {
-		if ( is_string( $attributes ) ) {
-			$attributes = [ 'slug' => $attributes ];
-		}
-
-		if ( is_array( $attributes ) ) {
-			$attributes[ 'page_size' ] = 1;
-		}
-
-		return $this->_find( $attributes, $createFunction )->rewind();
-	}
-
-	/**
 	 * Finds records with the given criteria
 	 *
 	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
 	 * @param callable $createFunction Signature: function(\StdClass $record, array $creatorAttributes) : static
-	 * @return Collection
+	 * @return ModelCollection
 	 */
 	protected function _find( $attributes = [], $createFunction = null ) {
 		if ( is_string( $attributes ) ) {
@@ -397,21 +354,61 @@ class RestfulRecord extends ContentHouseApiRequest
 		// get original attributes from builder
 		$fixedAttributes = $this->getFixedAttributes();
 		// prepare attributes
-		$attributes = array_merge( $fixedAttributes, RestfulRecord::fixAttributes( $attributes ) );
+		$attributesForCacheKey = array_merge( $fixedAttributes, RestfulRecord::fixAttributes( $attributes ) );
 
-		$cachedKey = serialize( array_merge( $fixedAttributes, $attributes ) );
+		$cachedKey = serialize( $attributesForCacheKey ) . uniqid();
 		if ( !isset( static::$_collections[ $cachedKey ] ) ) {
-			$col = new Collection();
+			$col = new ModelCollection();
 
 			$attributes = RestfulRecord::cleanAttributes( $attributes );
-			$response = $this->indexRequest( $attributes );
+			$parts = static::parseResourceSlug( $fixedAttributes[ '__path' ] );
+
+			// get single resource record
+			if ( !empty( $parts[ 2 ] ) ) {
+				$methodName = 'showRequest';
+				$methodArgs = [ '', $attributes ];
+			}
+			// get list of given type
+			else if ( !empty( $parts[ 1 ] ) ) {
+				$methodName = 'indexRequest';
+				$methodArgs = [ $attributes ];
+			}
+			// get app resource record
+			else if ( !empty( $parts[ 0 ] ) ) {
+				$methodName = 'showRequest';
+				$methodArgs = [ '', $attributes ];
+			}
+			// get list of apps
+			else {
+				$methodName = 'indexRequest';
+				$methodArgs = [ $attributes ];
+			}
+
+			$response = $this->{$methodName}( ...$methodArgs );
+
 			if ( !$response->error ) {
-				foreach ( $response->data as $recordData ) {
+				if ( $methodName == 'showRequest' ) {
+					$recordData = $response->data;
 					if ( $createFunction ) {
 						$recordData = call_user_func_array( $createFunction, [ $recordData, $fixedAttributes ] );
 					}
-					$col->append( $recordData );
+
+					$col->push( $recordData );
 				}
+				else if ( isset( $response->data->data ) ) {
+					foreach ( $response->data->data as $recordData ) {
+						if ( $createFunction ) {
+							$recordData = call_user_func_array( $createFunction, [ $recordData, $fixedAttributes ] );
+						}
+						$col->push( $recordData );
+					}
+				}
+			}
+			else {
+				$tmp = new RestfulRecord( $attributes );
+				$tmp->___error = $response->statusCode;
+				$tmp->message = $response->message;
+				$col->push( $tmp );
 			}
 
 			static::$_collections[ $cachedKey ] = $col;

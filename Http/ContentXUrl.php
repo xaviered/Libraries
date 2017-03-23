@@ -17,27 +17,9 @@ class ContentXUrl extends XUrl
 	/**
 	 * @return array
 	 */
-	public function getRestfulRecordAttributes( $clean = false ) {
-		$attributes = [];
-		$matches = RestfulRecord::parseResourceSlug( $this->requestedResource );
-		$attributes[ 'slug' ] = array_pop( $matches );
-		// type is empty, it is app
-		if ( empty( $matches[ 1 ] ) ) {
-			$attributes[ 'slug' ] = $matches[ 0 ];
-			$attributes[ '__path' ] = '/';
-			$attributes[ 'type' ] = null;
-		}
-		else {
-			$attributes[ 'type' ] = $matches[ 1 ];
-			$attributes[ '__path' ] = '/' . implode( '/', $matches );
-		}
-
+	public function getRestfulRecordAttributes($keepSlug=false) {
+		$attributes = RestfulRecord::fixAttributesFromPath( $this->requestedResource, $keepSlug );
 		$attributes[ '__url' ] = $this->serviceUrl;
-
-		$attributes = array_merge( parent::getRestfulRecordAttributes(), $attributes );
-		if ( $clean ) {
-			$attributes = RestfulRecord::cleanAttributes( $attributes );
-		}
 
 		return $attributes;
 	}

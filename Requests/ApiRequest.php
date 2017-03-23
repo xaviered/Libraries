@@ -90,7 +90,7 @@ abstract class ApiRequest
 	 */
 	public function prepareUrl( $postPath = null, $queryParams = null ) {
 		$url = rtrim( $this->getUrlBase() . $this->getPath() . '/' . ( $postPath ? ltrim( $postPath, '/' ) : '' ), '/' );
-		if ( !is_null( $queryParams ) && is_array( $queryParams ) ) {
+		if ( !is_null( $queryParams ) && is_array( $queryParams ) && count( $queryParams ) ) {
 			$url = rtrim( $url, '?' ) . '?' . http_build_query( $queryParams );
 		}
 
@@ -212,9 +212,7 @@ abstract class ApiRequest
 				$apiResponse->message = 'Internal Server Error';
 			}
 			else {
-				foreach ( $jsonResponse as $field => $value ) {
-					$apiResponse->{$field} = $value;
-				}
+				$apiResponse->data = $jsonResponse;
 				$apiResponse->error = false;
 				$apiResponse->message = null;
 				$apiResponse->statusCode = $response->getStatusCode();
