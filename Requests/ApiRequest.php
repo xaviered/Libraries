@@ -188,7 +188,7 @@ abstract class ApiRequest
 	}
 
 	/**
-	 * @return mixed
+	 * @return Response
 	 */
 	public function getLastResponse() {
 		return $this->lastResponse;
@@ -210,6 +210,7 @@ abstract class ApiRequest
 			$jsonResponse = json_decode( $response->getBody() );
 			if ( empty( $jsonResponse ) || $jsonResponse === FALSE ) {
 				$apiResponse->message = 'Internal Server Error';
+				$apiResponse->data = $response->getBody();
 			}
 			else {
 				$apiResponse->data = $jsonResponse;

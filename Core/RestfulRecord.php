@@ -4,6 +4,7 @@ namespace ixavier\Libraries\Core;
 use GuzzleHttp\Psr7\Response;
 use ixavier\Libraries\Http\ContentXUrl;
 use ixavier\Libraries\Http\XUrl;
+use ixavier\Libraries\Requests\ApiResponse;
 use ixavier\Libraries\Requests\ContentHouseApiRequest;
 
 // @todo: Add ability to do multiple requests at the same time, by using $this->newQuery()->where($attributes)->get()
@@ -113,8 +114,8 @@ class RestfulRecord extends ContentHouseApiRequest
 		// app request
 		else if ( !empty( $matches[ 0 ] ) ) {
 			$attributes[ 'slug' ] = $keepSlug ? $matches[ 0 ] : null;
-			$attributes[ '__path' ] = '/';
 			$attributes[ 'type' ] = null;
+			$attributes[ '__path' ] = '/' . $matches[ 0 ];
 		}
 		// list all apps request
 		else {
@@ -158,7 +159,7 @@ class RestfulRecord extends ContentHouseApiRequest
 		}
 
 		// this is a resource, update path!
-		if ( isset( $attributes[ 'data' ] ) && isset( $attributes[ 'data' ]->slug ) && count( explode( '/', trim( $attributes[ '__path' ], '/' ) ) ) != 3 ) {
+		if ( isset( $attributes[ 'data' ] ) && isset( $attributes[ 'data' ]->slug ) && count( explode( '/', trim( $attributes[ '__path' ] ?? '', '/' ) ) ) != 3 ) {
 			$attributes[ '__path' ] .= '/' . $attributes[ 'data' ]->slug;
 		}
 
@@ -175,13 +176,19 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return $this Chainnable method
 	 */
 	public function setAttributes( $attributes, $merge = false ) {
+		$this->setFixedAttributes( $attributes );
+		$attributes = static::cleanAttributes( $this->getFixedAttributes() );
+
+		return $this->IterableAttributes__setAttributes( $attributes, $merge );
+	}
+
+	protected function setFixedAttributes( $attributes ) {
 		$this->__fixedAttributes = $attributes = static::fixAttributes( $attributes );
 
 		$this->setUrlBase( $attributes[ '__url' ] ?? '' );
 		$this->setPath( $attributes[ '__path' ] ?? '' );
-		$attributes = static::cleanAttributes( $attributes );
 
-		return $this->IterableAttributes__setAttributes( $attributes, $merge );
+		return $this;
 	}
 
 	/**
@@ -230,11 +237,23 @@ class RestfulRecord extends ContentHouseApiRequest
 		return $this->_find(
 			$attributes,
 			function( $record, $creatorAttributes ) {
-				$attributes = array_merge( $creatorAttributes, (array)$record );
+				if ( isset( $record->data ) ) {
+					$record->data = array_merge( $creatorAttributes, (array)$record->data );
+				}
 
-				$tmp = static::create( $attributes[ 'data' ] ?? [] );
-				$tmp->relations = $attributes[ 'relations' ] ?? [];
-				$tmp->links = $attributes[ 'links' ] ?? [];
+				// make all relations RestfulRecord objects
+				Common::array_walk_recursive( $record->relations, function( &$item ) {
+					if ( !( $item instanceof RestfulRecord ) && isset( $item->data ) && isset( $item->links ) && isset( $item->relations ) ) {
+						$tmp = RestfulRecord::create( $item->data ?? [] );
+						$tmp->relations = $item->relations ?? [];
+						$tmp->links = $item->links ?? [];
+						$item = $tmp;
+					}
+				} );
+
+				$tmp = static::create( $record->data ?? [] );
+				$tmp->relations = $record->relations ?? [];
+				$tmp->links = $record->links ?? [];
 
 				return $tmp;
 			}
@@ -367,8 +386,15 @@ class RestfulRecord extends ContentHouseApiRequest
 			$attributes = [ 'slug' => $attributes ];
 		}
 
+		// update fixed in case passed via $attributes
+		$this->setFixedAttributes( array_merge(
+			$this->getFixedAttributes(),
+			static::fixAttributes( $attributes )
+		) );
+
 		// get original attributes from builder
 		$fixedAttributes = $this->getFixedAttributes();
+
 		// prepare attributes
 		$attributesForCacheKey = array_merge( $fixedAttributes, RestfulRecord::fixAttributes( $attributes ) );
 
@@ -376,8 +402,8 @@ class RestfulRecord extends ContentHouseApiRequest
 		if ( !isset( static::$_collections[ $cachedKey ] ) ) {
 			$col = new ModelCollection();
 
-			$attributes = RestfulRecord::cleanAttributes( $attributes );
-			$parts = static::parseResourceSlug( $fixedAttributes[ '__path' ] );
+			$attributes = RestfulRecord::cleanAttributes( $attributesForCacheKey );
+			$parts = static::parseResourceSlug( $fixedAttributes[ '__path' ] ?? '' );
 
 			// get single resource record
 			if ( !empty( $parts[ 2 ] ) ) {
@@ -402,6 +428,7 @@ class RestfulRecord extends ContentHouseApiRequest
 
 			$response = $this->{$methodName}( ...$methodArgs );
 
+			/** @var ApiResponse $response */
 			if ( !$response->error ) {
 				if ( $methodName == 'showRequest' ) {
 					$recordData = $response->data;
@@ -422,7 +449,7 @@ class RestfulRecord extends ContentHouseApiRequest
 			}
 			else {
 				$tmp = new RestfulRecord( $attributes );
-				$tmp->setError( [ 'code' => $response->statusCode, 'message' => $response->message ] );
+				$tmp->setError( [ 'code' => $response->statusCode, 'message' => $response->message, 'response' => $this->getLastResponse() ] );
 				$col->push( $tmp );
 			}
 
