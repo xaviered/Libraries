@@ -15,6 +15,20 @@ trait IterableAttributes
 	protected $_attributeListeners;
 
 	/**
+	 * Gets public variables, not attributes
+	 * @return array
+	 */
+	protected function getPublicVars() {
+		$properties = [];
+		foreach ( ( new \ReflectionClass( $this ) )->getProperties( \ReflectionProperty::IS_PUBLIC ) as $property ) {
+			$properties[ $property->getName() ] = $this->{$property->getName()};
+		}
+
+		return $properties;
+
+	}
+
+	/**
 	 * Basic iterator object
 	 * @return ObjectIterator
 	 */
@@ -25,11 +39,11 @@ trait IterableAttributes
 	/**
 	 * Gets one attribute
 	 *
-	 * @param string $key
+	 * @param string $name
 	 * @return mixed
 	 */
-	public function getAttribute( $key ) {
-		return $this->getAttributes()[ $key ] ?? null;
+	public function getAttribute( $name ) {
+		return $this->getAttributes()[ $name ] ?? null;
 	}
 
 	/**
@@ -42,25 +56,56 @@ trait IterableAttributes
 	}
 
 	/**
-	 * @param string $key
+	 * @param string $name
 	 * @param mixed $value
 	 * @return $this Chainnable method
 	 * @internal param array $attributes
 	 */
-	public function setAttribute( $key, $value ) {
-		$this->_attributes[ $key ] = $value;
+	public function setAttribute( $name, $value, $external = false ) {
+		if ( $this->hasAttributeListener( $name ) ) {
+			$value = call_user_func( $this->getAttributeListener( $name ), [ $name, $value, $this->_attributes[ $name ] ?? null ] );
+		}
+
+		$this->_attributes[ $name ] = $value;
 
 		return $this;
 	}
 
 	/**
 	 * @param array $attributes
+	 * @param bool $merge
 	 * @return $this Chainnable method
 	 */
-	public function setAttributes( array $attributes ) {
-		$this->_attributes = $attributes;
+	public function setAttributes( array $attributes, $merge = false ) {
+		if ( $merge ) {
+			$oldAttributes = $this->_attributes;
+			$this->_attributes = [];
+		}
+
+		foreach ( $attributes as $name => $value ) {
+			$this->setAttribute( $name, $value, true );
+		}
+
+		if ( $merge ) {
+			$this->_attributes = array_merge( $oldAttributes, $this->_attributes );
+		}
 
 		return $this;
+	}
+
+	/**
+	 * @param string $name
+	 * @return bool
+	 */
+	public function isAttribute( $name ) {
+		return isset( $this->_attributes[ $name ] );
+	}
+
+	/**
+	 * @param string $name
+	 */
+	public function removeAttribute( $name ) {
+		unset( $this->_attributes[ $name ] );
 	}
 
 	/**
@@ -115,23 +160,20 @@ trait IterableAttributes
 	//
 
 	public function __get( $name ) {
-		return $this->_attributes[ $name ] ?? null;
+		return $this->getAttribute( $name );
 	}
 
 	public function __set( $name, $value ) {
-		if ( $this->hasAttributeListener( $name ) ) {
-			$value = call_user_func( $this->getAttributeListener( $name ), [ $name, $value, $this->_attributes[ $name ] ?? null ] );
-		}
-		$this->_attributes[ $name ] = $value;
+		$this->setAttribute( $name, $value );
 
 		return $value;
 	}
 
 	public function __isset( $name ) {
-		return isset( $this->_attributes[ $name ] );
+		return $this->isAttribute( $name );
 	}
 
 	public function __unset( $name ) {
-		unset( $this->_attributes[ $name ] );
+		$this->removeAttribute( $name );
 	}
 }

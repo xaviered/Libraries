@@ -28,8 +28,14 @@ class RestfulRecord extends ContentHouseApiRequest
 	/** @var string RegEx to use on Resource types */
 	CONST RESOURCE_TYPE_REGEX = '[a-z][a-z0-9]+';
 
+	/** @var array A list of links related to this record, including 'self' */
+	public $links;
+
+	/** @var array A list of related collections */
+	public $relations;
+
 	/** @var Response Error Response if bad response from API server */
-	public $___error;
+	protected $_error;
 
 	/** @var bool True if already loaded */
 	protected $_loaded = false;
@@ -146,7 +152,7 @@ class RestfulRecord extends ContentHouseApiRequest
 		}
 
 		// get path from slug
-		if ( empty( $attributes[ '__path' ] ) ) {
+		if ( empty( $attributes[ '__path' ] ) && !empty( $attributes[ 'slug' ] ) && strpos( $attributes[ 'slug' ], '/' ) !== false ) {
 			$fixedAttributes = static::fixAttributesFromPath( $attributes[ 'slug' ] ?? '' );
 			$attributes = array_merge( $attributes, $fixedAttributes );
 		}
@@ -165,17 +171,17 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * Cleans attributes before adding them
 	 *
 	 * @param array $attributes
+	 * @param bool $merge
 	 * @return $this Chainnable method
 	 */
-	public function setAttributes( $attributes ) {
-		$oa = $attributes;
+	public function setAttributes( $attributes, $merge = false ) {
 		$this->__fixedAttributes = $attributes = static::fixAttributes( $attributes );
 
-		$this->setUrlBase( $attributes[ '__url' ] );
-		$this->setPath( $attributes[ '__path' ] );
+		$this->setUrlBase( $attributes[ '__url' ] ?? '' );
+		$this->setPath( $attributes[ '__path' ] ?? '' );
 		$attributes = static::cleanAttributes( $attributes );
 
-		return $this->IterableAttributes__setAttributes( $attributes );
+		return $this->IterableAttributes__setAttributes( $attributes, $merge );
 	}
 
 	/**
@@ -194,7 +200,13 @@ class RestfulRecord extends ContentHouseApiRequest
 	 */
 	public function toApiArray( $relationsDepth = 0, $hideSelfLinkQuery = false ) {
 		// @todo: Handle loading relations
-		return $this->getAttributes();
+		$attributes = $this->getAttributes();
+
+		return [
+			'data' => $attributes,
+			'relations' => $this->relations,
+			'links' => $this->links
+		];
 	}
 
 	/**
@@ -220,7 +232,11 @@ class RestfulRecord extends ContentHouseApiRequest
 			function( $record, $creatorAttributes ) {
 				$attributes = array_merge( $creatorAttributes, (array)$record );
 
-				return static::create( $attributes );
+				$tmp = static::create( $attributes[ 'data' ] ?? [] );
+				$tmp->relations = $attributes[ 'relations' ] ?? [];
+				$tmp->links = $attributes[ 'links' ] ?? [];
+
+				return $tmp;
 			}
 		);
 	}
@@ -285,7 +301,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * ]
 	 */
 	public static function parseResourceSlug( $path, $defaults = [ 'app' => null, 'type' => null ], $onlySlugs = false ) {
-		// A good URL will not spaces
+		// A good URL will not have spaces
 		$path = trim( $path );
 
 		// no app, type, or resource
@@ -406,8 +422,7 @@ class RestfulRecord extends ContentHouseApiRequest
 			}
 			else {
 				$tmp = new RestfulRecord( $attributes );
-				$tmp->___error = $response->statusCode;
-				$tmp->message = $response->message;
+				$tmp->setError( [ 'code' => $response->statusCode, 'message' => $response->message ] );
 				$col->push( $tmp );
 			}
 
@@ -415,5 +430,19 @@ class RestfulRecord extends ContentHouseApiRequest
 		}
 
 		return static::$_collections[ $cachedKey ];
+	}
+
+	/**
+	 * @return mixed
+	 */
+	public function getError() {
+		return $this->_error;
+	}
+
+	/**
+	 * @param mixed $error
+	 */
+	public function setError( $error ) {
+		$this->_error = $error;
 	}
 }
