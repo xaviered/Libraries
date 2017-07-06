@@ -3,6 +3,8 @@ namespace ixavier\Libraries\Core;
 
 /**
  * Class ObjectIterator is basic iterator
+ *
+ * @package ixavier\Libraries\Core
  */
 class ObjectIterator implements \Iterator
 {
