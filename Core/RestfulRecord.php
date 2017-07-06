@@ -6,12 +6,13 @@ use ixavier\Libraries\Http\ContentXUrl;
 use ixavier\Libraries\Http\XUrl;
 use ixavier\Libraries\Requests\ApiResponse;
 use ixavier\Libraries\Requests\ContentHouseApiRequest;
+use ixavier\Libraries\RestfulRecords\App;
 
 // @todo: Add ability to do multiple requests at the same time, by using $this->newQuery()->where($attributes)->get()
 // For immediate calls, we can also do $this->newQuery()->get($attributes)
 //
 /**
- * Class RestfulRecord
+ * Class RestfulRecord represents one record of a given type
  *
  * @package ixavier\Libraries\Core
  *
@@ -27,13 +28,22 @@ class RestfulRecord extends ContentHouseApiRequest
 	CONST SLUG_REGEX = '[A-Za-z][A-Za-z0-9\-_]*';
 
 	/** @var string RegEx to use on Resource types */
-	CONST RESOURCE_TYPE_REGEX = '[a-z][a-z0-9]+';
+	CONST RESOURCE_TYPE_REGEX = '[A-Za-z][A-Za-z0-9]+';
 
 	/** @var array A list of links related to this record, including 'self' */
 	public $links;
 
 	/** @var array A list of related collections */
 	public $relations;
+
+	/** @var array Special runtime attributes */
+	public static $specialAttributes = [ '__app', '__path', '__url', ];
+
+	/** @var App $app */
+	protected $app;
+
+	/** @var bool Indicates if the model exists. */
+	protected $_exists = false;
 
 	/** @var Response Error Response if bad response from API server */
 	protected $_error;
@@ -52,6 +62,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 *
 	 * @param array|object|ContentXUrl $attributes Pre-populate with attributes
 	 * Attributes can be:
+	 * __app    App that this resource belongs to, only if instance is not an App itself
 	 * __url    Base URL to make the request
 	 * __path   Path to make requests
 	 * type     Type of object
@@ -176,19 +187,42 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return $this Chainnable method
 	 */
 	public function setAttributes( $attributes, $merge = false ) {
-		$this->setFixedAttributes( $attributes );
-		$attributes = static::cleanAttributes( $this->getFixedAttributes() );
+		$attributes = $this->setFixedAttributes( $attributes );
+		$attributes = static::cleanAttributes( $attributes );
 
 		return $this->IterableAttributes__setAttributes( $attributes, $merge );
 	}
 
+	/**
+	 * Set runtime vars from $attributes
+	 *
+	 * @param array $attributes
+	 * @return array
+	 */
 	protected function setFixedAttributes( $attributes ) {
-		$this->__fixedAttributes = $attributes = static::fixAttributes( $attributes );
+		$attributes = static::fixAttributes( $attributes );
+
+		if ( !empty( $attributes[ '__app' ] ) ) {
+			$this->setApp( $attributes[ '__app' ] );
+
+			if ( $attributes[ '__app' ] instanceof RestfulRecord ) {
+				$attributes[ '__app' ] = $attributes[ '__app' ]->getAttributes();
+			}
+
+			// fix path
+			if ( $this->getApp() && isset( $attributes[ 'type' ] ) && empty( $attributes[ '__path' ] ) ) {
+				$attributes[ '__path' ] = $this->getPath() . '/' . $attributes[ 'type' ];
+			}
+		}
+
+		// save only special attributes
+		$specialAttributes = array_combine( static::$specialAttributes, static::$specialAttributes );
+		$this->__fixedAttributes = array_intersect_key( $attributes, $specialAttributes );
 
 		$this->setUrlBase( $attributes[ '__url' ] ?? '' );
-		$this->setPath( $attributes[ '__path' ] ?? '' );
+		$this->setPath( $attributes[ '__path' ] ?? '/' );
 
-		return $this;
+		return $attributes;
 	}
 
 	/**
@@ -220,11 +254,15 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * Helper method for constructor
 	 *
 	 * @param array $fields
+	 * @param bool $exists If record exists on data store
 	 * @return static
 	 */
-	public static function create( $fields = null ) {
+	public static function create( $fields = null, $exists = false ) {
 		// @todo: don't call static, use overwritten classes for each type
-		return ( new static( $fields ) )->setLoaded( true );
+		return ( new static( $fields ) )
+			->setLoaded( true )
+			->exists( $exists )
+			;
 	}
 
 	/**
@@ -236,28 +274,63 @@ class RestfulRecord extends ContentHouseApiRequest
 	public function get( $attributes = [] ) {
 		return $this->_find(
 			$attributes,
-			function( $record, $creatorAttributes ) {
-				if ( isset( $record->data ) ) {
-					$record->data = array_merge( $creatorAttributes, (array)$record->data );
-				}
-
-				// make all relations RestfulRecord objects
-				Common::array_walk_recursive( $record->relations, function( &$item ) {
-					if ( !( $item instanceof RestfulRecord ) && isset( $item->data ) && isset( $item->links ) && isset( $item->relations ) ) {
-						$tmp = RestfulRecord::create( $item->data ?? [] );
-						$tmp->relations = $item->relations ?? [];
-						$tmp->links = $item->links ?? [];
-						$item = $tmp;
-					}
-				} );
-
-				$tmp = static::create( $record->data ?? [] );
-				$tmp->relations = $record->relations ?? [];
-				$tmp->links = $record->links ?? [];
-
-				return $tmp;
-			}
+			[ $this, 'createFromApiRecord' ]
 		);
+	}
+
+	/**
+	 * @return App|RestfulRecord
+	 */
+	public function getApp() {
+		return $this->app;
+	}
+
+	/**
+	 * @param App|RestfulRecord|string $app App or slug of app
+	 * @return $this Chainable method.
+	 */
+	public function setApp( $app ) {
+		if ( is_string( $app ) ) {
+			$this->app = App::query()->find( $app ) ?? $this->app;
+		}
+		else if ( !( $this instanceof App ) ) {
+			$this->app = $app;
+		}
+
+		if ( isset( $this->app ) && isset( $this->app->slug ) ) {
+			$this->setPath( rtrim( $app->getPath(), '/' ) . '/' . $app->slug );
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Creates a new RestfulRecord from the data given by the content API
+	 *
+	 * @param \stdClass $record API response of a single record
+	 * @param array $creatorAttributes The attributes sent to API
+	 * @return RestfulRecord
+	 */
+	protected function createFromApiRecord( $record, $creatorAttributes ) {
+		if ( isset( $record->data ) ) {
+			$record->data = array_merge( $creatorAttributes, (array)$record->data );
+		}
+
+		// make all relations RestfulRecord objects
+		Common::array_walk_recursive( $record->relations, function( &$item ) {
+			if ( !( $item instanceof RestfulRecord ) && isset( $item->data ) && isset( $item->links ) && isset( $item->relations ) ) {
+				$tmp = RestfulRecord::create( $item->data ?? [], true );
+				$tmp->relations = $item->relations ?? [];
+				$tmp->links = $item->links ?? [];
+				$item = $tmp;
+			}
+		} );
+
+		$tmp = static::create( $record->data ?? [], true );
+		$tmp->relations = $record->relations ?? [];
+		$tmp->links = $record->links ?? [];
+
+		return $tmp;
 	}
 
 	/**
@@ -277,6 +350,81 @@ class RestfulRecord extends ContentHouseApiRequest
 
 		// @todo: Fix arguments once `where` is working
 		return $this->where( $attributes )->get( $attributes )->first();
+	}
+
+	/**
+	 * Save the model to the API
+	 *
+	 * @param  array $options
+	 * @return bool True if succeeded, false otherwise. Check object's error for details if failed.
+	 */
+	public function save( $options = [] ) {
+		$options = Common::fixOptions( $options, 'ignoreIfExists overrideIfExists' );
+		$originalAttributes = $this->getAttributes();
+
+		// get original attributes from builder
+		$fixedAttributes = $this->getFixedAttributes();
+		// prepare attributes
+		$attributesForCacheKey = array_merge( $fixedAttributes, static::fixAttributes( $originalAttributes ) );
+		$attributes = RestfulRecord::cleanAttributes( $attributesForCacheKey );
+
+		// find existing object first
+		if ( $this->slug && ( $options[ 'ignoreIfExists' ] || $options[ 'overrideIfExists' ] ) ) {
+			$record = static::query( $fixedAttributes )->find( $this->slug );
+			if ( $record && $record->exists() ) {
+				if ( $options[ 'ignoreIfExists' ] ) {
+					return true;
+				}
+				else if ( $options[ 'overrideIfExists' ] ) {
+					$record->setAttributes( $attributesForCacheKey );
+
+					return $record->save();
+				}
+			}
+		}
+
+		// send update
+		if ( $this->exists() && !empty( $this->slug ) ) {
+			$methodName = 'updateRequest';
+			$methodArgs = [ $this->slug, $attributes ];
+		}
+		// send create
+		else {
+			$methodName = 'storeRequest';
+			$methodArgs = [ $attributes ];
+		}
+
+		// make the request
+		$response = $this->{$methodName}( ...$methodArgs );
+
+		/** @var ApiResponse $response */
+		if ( !$response->error && $response->data ) {
+			$instance = $this->createFromApiRecord( $response->data, $attributes );
+			$this->setAttributes( $instance->getAttributes() );
+
+			return true;
+		}
+		else {
+			$this->setError( [ 'code' => $response->statusCode, 'message' => $response->message, 'response' => $this->getLastResponse() ] );
+
+			return false;
+		}
+	}
+
+	/**
+	 * Sets/checks for existence of record on data store.
+	 *
+	 * @param bool $value If bool passed, will set existence to its value.
+	 * @return bool|self If passed bool, will return $this, otherwise will return current existence value.
+	 */
+	public function exists( $value = null ) {
+		if ( is_bool( $value ) ) {
+			$this->_exists = $value;
+
+			return $this;
+		}
+
+		return $this->_exists;
 	}
 
 	/**
@@ -364,9 +512,9 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return array
 	 */
 	public static function cleanAttributes( array $attributes ) {
-		unset( $attributes[ '__app' ] );
-		unset( $attributes[ '__path' ] );
-		unset( $attributes[ '__url' ] );
+		foreach ( static::$specialAttributes as $specialAttribute ) {
+			unset( $attributes[ $specialAttribute ] );
+		}
 		if ( array_key_exists( 'slug', $attributes ) && $attributes[ 'slug' ] === null ) {
 			unset( $attributes[ 'slug' ] );
 		}
@@ -396,9 +544,9 @@ class RestfulRecord extends ContentHouseApiRequest
 		$fixedAttributes = $this->getFixedAttributes();
 
 		// prepare attributes
-		$attributesForCacheKey = array_merge( $fixedAttributes, RestfulRecord::fixAttributes( $attributes ) );
+		$attributesForCacheKey = array_merge( $fixedAttributes, static::fixAttributes( $attributes ) );
 
-		$cachedKey = serialize( $attributesForCacheKey ) . uniqid();
+		$cachedKey = serialize( $attributesForCacheKey ) . static::class;
 		if ( !isset( static::$_collections[ $cachedKey ] ) ) {
 			$col = new ModelCollection();
 

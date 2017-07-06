@@ -79,8 +79,8 @@ trait IterableAttributes
 	public function setAttributes( array $attributes, $merge = false ) {
 		if ( $merge ) {
 			$oldAttributes = $this->_attributes;
-			$this->_attributes = [];
 		}
+		$this->_attributes = [];
 
 		foreach ( $attributes as $name => $value ) {
 			$this->setAttribute( $name, $value, true );

@@ -89,12 +89,10 @@ abstract class ApiRequest
 	 * @return string
 	 */
 	public function prepareUrl( $postPath = null, $queryParams = null ) {
-		$url = rtrim( $this->getUrlBase() . $this->getPath() . '/' . ( $postPath ? ltrim( $postPath, '/' ) : '' ), '/' );
+		$url = rtrim( $this->getUrlBase() . rtrim( $this->getPath(), '/' ) . '/' . ( $postPath ? ltrim( $postPath, '/' ) : '' ), '/' );
 		if ( !is_null( $queryParams ) && is_array( $queryParams ) && count( $queryParams ) ) {
 			$url = rtrim( $url, '?' ) . '?' . http_build_query( $queryParams );
 		}
-
-		Log::info( 'Request: ' . $url );
 
 		return $url;
 	}
@@ -106,9 +104,12 @@ abstract class ApiRequest
 	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
 	 */
 	public function indexRequest( $queryParams = null ) {
+		$url = $this->prepareUrl( null, $queryParams );
+		Log::info( "INDEX: $url" );
+
 		return $this->getApiResponse(
 			$this->httpClient->get(
-				$this->prepareUrl( null, $queryParams ),
+				$url,
 				static::$defaultRequestOptions
 			)
 		);
@@ -126,9 +127,12 @@ abstract class ApiRequest
 		$options[ 'headers' ][ 'Content-Type' ] = 'application/json';
 		$options[ 'body' ] = json_encode( $postData );
 
+		$url = $this->prepareUrl( null, $queryParams );
+		Log::info( "STORE: $url \n" . $options[ 'body' ] );
+
 		return $this->getApiResponse(
 			$this->httpClient->post(
-				$this->prepareUrl( null, $queryParams ),
+				$url,
 				$options
 			)
 		);
@@ -142,9 +146,12 @@ abstract class ApiRequest
 	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
 	 */
 	public function showRequest( $slug, $queryParams = null ) {
+		$url = $this->prepareUrl( $slug, $queryParams );
+		Log::info( "SHOW: $url" );
+
 		return $this->getApiResponse(
 			$this->httpClient->get(
-				$this->prepareUrl( $slug, $queryParams ),
+				$url,
 				static::$defaultRequestOptions
 			)
 		);
@@ -163,9 +170,12 @@ abstract class ApiRequest
 		$options[ 'headers' ][ 'Content-Type' ] = 'application/json';
 		$options[ 'body' ] = json_encode( $postData );
 
+		$url = $this->prepareUrl( $slug, $queryParams );
+		Log::info( "UPDATE: $url \n" . $options[ 'body' ] );
+
 		return $this->getApiResponse(
 			$this->httpClient->patch(
-				$this->prepareUrl( $slug, $queryParams ),
+				$url,
 				$options
 			)
 		);
@@ -179,9 +189,12 @@ abstract class ApiRequest
 	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
 	 */
 	public function destroyRequest( $slug, $queryParams = null ) {
+		$url = $this->prepareUrl( $slug, $queryParams );
+		Log::info( "DELETE: $url" );
+
 		return $this->getApiResponse(
 			$this->httpClient->delete(
-				$this->prepareUrl( $slug, $queryParams ),
+				$url,
 				static::$defaultRequestOptions
 			)
 		);

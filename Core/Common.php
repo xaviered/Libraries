@@ -1,6 +1,8 @@
 <?php
 namespace ixavier\Libraries\Core;
 
+use Illuminate\Support\Debug\Dumper;
+
 /**
  * Class Common holds common helper functions that are used throughout
  *
@@ -73,6 +75,34 @@ class Common
 	}
 
 	/**
+	 * Converts options into an array of key=>bool pair to check as flags.
+	 *
+	 * @param array|string $options An array of flag=>value pair or a space-separate string of flags to be ON; i.e. "flag1 flag2" ==> [flag1=>true, flag2=>true]
+	 * @param array|string $defaults If nothing found on $options, will fall back on this.
+	 *  If string passed, it needs to be a space-separate string of flags to be OFF; i.e. "flag1 flag2" ==> [flag1=>false, flag2=>false]
+	 * @return array
+	 */
+	public static function fixOptions( $options, $defaults = [] ) {
+		if ( is_string( $options ) && !empty( $options ) ) {
+			$options = explode( ' ', $options );
+			$options = array_combine( $options, array_fill( 0, count( $options ), true ) );
+		}
+		else if ( !is_array( $options ) ) {
+			$options = [];
+		}
+
+		if ( is_string( $defaults ) && !empty( $defaults ) ) {
+			$defaults = explode( ' ', $defaults );
+			$defaults = array_combine( $defaults, array_fill( 0, count( $defaults ), false ) );
+		}
+		else if ( !is_array( $defaults ) ) {
+			$defaults = [];
+		}
+
+		return array_merge( $defaults, $options );
+	}
+
+	/**
 	 * @param string $class Class name
 	 * @return string Basename of this class
 	 */
@@ -102,5 +132,23 @@ class Common
 				static::array_walk_recursive( $value, $closure, $userData );
 			}
 		}
+	}
+
+	/**
+	 * Same as dd(), but doesn't die.
+	 */
+	public static function pd() {
+		array_map( function( $x ) {
+			( new Dumper )->dump( $x );
+		}, func_get_args() );
+	}
+
+	/**
+	 * Prints backtrace for HTML
+	 */
+	public static function printBacktrace() {
+		print "<pre>";
+		debug_print_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS );
+		print "</pre>";
 	}
 }

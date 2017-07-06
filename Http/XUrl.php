@@ -305,14 +305,14 @@ class XUrl
 
 		// i.e.
 		// from...
-		// contenthouse:{version}//ixavier.com/app/{slug}
-		// contenthouse:{version}//ixavier.com/{type}/{app}
-		// contenthouse:{version}//ixavier.com/{type}/{app}/{slug}
+		// content:{version}//ixavier.com/app/{slug}
+		// content:{version}//ixavier.com/{type}/{app}
+		// content:{version}//ixavier.com/{type}/{app}/{slug}
 
 		// to...
-		// external global = //contenthouse.ixavier.com/api/{version}/app/{slug}
-		// external global = //contenthouse.ixavier.com/api/{version}/{type}/{app}
-		// external global = //contenthouse.ixavier.com/api/{version}/{type}/{app}/{slug}
+		// external global = //content.ixavier.com/api/{version}/app/{slug}
+		// external global = //content.ixavier.com/api/{version}/{type}/{app}
+		// external global = //content.ixavier.com/api/{version}/{type}/{app}/{slug}
 
 		preg_match( '|([a-z][a-z0-9\_\-]+)?\:(?=v?(\d+))?//([a-z][a-z0-9\_\-]{2}[a-z0-9\_\-\.]*)?(/.*)|', $url, $matches );
 
