@@ -233,6 +233,14 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
+	 * Gets all attributes; fixed and normal
+	 * @return array
+	 */
+	public function getAllAttributes() {
+		return array_merge( $this->getFixedAttributes(), static::fixAttributes( $this->getAttributes() ) );
+	}
+
+	/**
 	 * API array representation of this model
 	 *
 	 * @param int $relationsDepth Current depth of relations loaded. Default = 1
@@ -365,7 +373,7 @@ class RestfulRecord extends ContentHouseApiRequest
 		// get original attributes from builder
 		$fixedAttributes = $this->getFixedAttributes();
 		// prepare attributes
-		$attributesForCacheKey = array_merge( $fixedAttributes, static::fixAttributes( $originalAttributes ) );
+		$attributesForCacheKey = $this->getAllAttributes();
 		$attributes = RestfulRecord::cleanAttributes( $attributesForCacheKey );
 
 		// find existing object first
@@ -399,8 +407,38 @@ class RestfulRecord extends ContentHouseApiRequest
 
 		/** @var ApiResponse $response */
 		if ( !$response->error && $response->data ) {
-			$instance = $this->createFromApiRecord( $response->data, $attributes );
-			$this->setAttributes( $instance->getAttributes() );
+			$instance = $this->createFromApiRecord( $response->data, $attributesForCacheKey );
+			$this->setAttributes( $instance->getAllAttributes() )->exists( true );
+
+			return true;
+		}
+		else {
+			$this->setError( [ 'code' => $response->statusCode, 'message' => $response->message, 'response' => $this->getLastResponse() ] );
+
+			return false;
+		}
+	}
+
+	/**
+	 * Delete the model from the API
+	 *
+	 * @return bool True if succeeded, false otherwise. Check object's error for details if failed.
+	 */
+	public function delete() {
+
+		// send update
+		if ( empty( $this->slug ) ) {
+			$this->setError( [ 'code' => 0, 'message' => 'Cannot delete record with empty slug.' ] );
+
+			return false;
+		}
+
+		// make the request
+		$response = $this->destroyRequest( $this->slug );
+
+		/** @var ApiResponse $response */
+		if ( !$response->error && $response->data ) {
+			$this->setAttributes( [] )->exists( false );
 
 			return true;
 		}
