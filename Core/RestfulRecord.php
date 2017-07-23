@@ -469,7 +469,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * Sets/checks for existence of record on data store.
 	 *
 	 * @param bool $value If bool passed, will set existence to its value.
-	 * @return bool|self If passed bool, will return $this, otherwise will return current existence value.
+	 * @return bool|$this If passed bool, will return $this, otherwise will return current existence value.
 	 */
 	public function exists( $value = null ) {
 		if ( is_bool( $value ) ) {
