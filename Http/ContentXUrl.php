@@ -4,11 +4,11 @@ namespace ixavier\Libraries\Http;
 use ixavier\Libraries\Core\RestfulRecord;
 
 /**
- * Class ContentXUrl adds functionality to URLs coming from the iXavier's `content` service
+ * Class ContentXURL adds functionality to URLs coming from the iXavier's `content` service
  *
  * @package ixavier\Libraries\Http
  */
-class ContentXUrl extends XUrl
+class ContentXURL extends XURL
 {
 	public $app;
 	public $type;

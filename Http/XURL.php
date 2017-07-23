@@ -8,11 +8,11 @@ use Symfony\Component\HttpFoundation\ParameterBag;
 
 // @todo: Add a serialize method to spit out full URL
 /**
- * Class XUrl
+ * Class XURL
  *
  * @package ixavier\Libraries\Http
  */
-class XUrl
+class XURL
 {
 	/** @var string $service Name of the service or site */
 	public $service;
@@ -65,15 +65,15 @@ class XUrl
 	 * Clones to a new object
 	 *
 	 * @param string $castClass Create new instace of this class instead.
-	 *  New class should be a subclass of XUrl class
-	 * @return XUrl
+	 *  New class should be a subclass of XURL class
+	 * @return XURL
 	 */
 	public function clone( $castClass = null ) {
 		$cloneClass = get_class( $this );
 		if ( !empty( $castClass ) && is_subclass_of( $castClass, self::class, true ) ) {
 			$cloneClass = $castClass;
 		}
-		/** @var self $clone */
+		/** @var XURL $clone */
 		$clone = new $cloneClass;
 		$clone->setProperties( $this->getProperties() );
 
@@ -387,7 +387,7 @@ class XUrl
 	 * Based on $uri, will crete new instaces of subclasses of this
 	 *
 	 * @param string $uri
-	 * @return self
+	 * @return XURL
 	 */
 	public static function create( $uri ) {
 		$tmp = new static( $uri );
@@ -395,7 +395,7 @@ class XUrl
 		if ( $tmp->isValid() ) {
 			if ( !empty( $tmp->service ) ) {
 				$serviceInfo = static::getServiceInfo( $tmp->service );
-				$className = $serviceInfo[ 'url_scheme' ] ?? Common::getClassNamespace( self::class ) . '\\' . ucfirst( $tmp->service ) . 'XUrl';
+				$className = $serviceInfo[ 'url_scheme' ] ?? Common::getClassNamespace( self::class ) . '\\' . ucfirst( $tmp->service ) . 'XURL';
 				if ( class_exists( $className ) ) {
 					$tmp = $tmp->clone( $className );
 				}
@@ -407,7 +407,7 @@ class XUrl
 
 	/**
 	 * @param RestfulRecord $record
-	 * @return self
+	 * @return XURL
 	 */
 	public static function createFromRecord( $record ) {
 		$url = $record->getUrlBase()

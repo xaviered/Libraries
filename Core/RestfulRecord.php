@@ -2,8 +2,8 @@
 namespace ixavier\Libraries\Core;
 
 use GuzzleHttp\Psr7\Response;
-use ixavier\Libraries\Http\ContentXUrl;
-use ixavier\Libraries\Http\XUrl;
+use ixavier\Libraries\Http\ContentXURL;
+use ixavier\Libraries\Http\XURL;
 use ixavier\Libraries\Requests\ApiResponse;
 use ixavier\Libraries\Requests\ContentHouseApiRequest;
 use ixavier\Libraries\RestfulRecords\App;
@@ -33,8 +33,8 @@ class RestfulRecord extends ContentHouseApiRequest
 	/** @var array A list of links related to this record, including 'self' */
 	public $links;
 
-	/** @var array A list of related collections */
-	public $relations;
+	/** @var ModelCollection Related content */
+	public $relationships;
 
 	/** @var array Special runtime attributes */
 	public static $specialAttributes = [ '__app', '__path', '__url', ];
@@ -54,13 +54,13 @@ class RestfulRecord extends ContentHouseApiRequest
 	/** @var ModelCollection[] memory cache for collections */
 	protected static $_collections = [];
 
-	/** @var array|XUrl|string */
+	/** @var array|XURL|string */
 	private $__fixedAttributes;
 
 	/**
 	 * RestfulRecord constructor.
 	 *
-	 * @param array|object|ContentXUrl $attributes Pre-populate with attributes
+	 * @param array|object|ContentXURL $attributes Pre-populate with attributes
 	 * Attributes can be:
 	 * __app    App that this resource belongs to, only if instance is not an App itself
 	 * __url    Base URL to make the request
@@ -70,12 +70,14 @@ class RestfulRecord extends ContentHouseApiRequest
 	 *          Can also be full request, therefore `__path`, and `type` will be determined based on this.
 	 */
 	public function __construct( $attributes = [] ) {
+		$this->relationships = new ModelCollection();
+
 		parent::__construct();
 		$this->setAttributes( $attributes );
 	}
 
 	/**
-	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
+	 * @param string|array|object|XURL $attributes Pre-populate with attributes. @see self::fixAttributes()
 	 * @return $this
 	 */
 	public static function query( $attributes = [] ) {
@@ -137,7 +139,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
-	 * @param string|array|object|XUrl $attributes Pre-populate with attributes
+	 * @param string|array|object|XURL $attributes Pre-populate with attributes
 	 * String will be slug
 	 *
 	 * Array|object can have:
@@ -150,7 +152,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return array Fixed attributes
 	 */
 	public static function fixAttributes( $attributes ) {
-		if ( is_object( $attributes ) && ( $attributes instanceof XUrl ) ) {
+		if ( is_object( $attributes ) && ( $attributes instanceof XURL ) ) {
 			$attributes = $attributes->getRestfulRecordAttributes();
 		}
 		else if ( is_object( $attributes ) ) {
@@ -226,7 +228,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
-	 * @return array|XUrl|string
+	 * @return array|XURL|string
 	 */
 	public function getFixedAttributes() {
 		return $this->__fixedAttributes;
@@ -234,29 +236,31 @@ class RestfulRecord extends ContentHouseApiRequest
 
 	/**
 	 * Gets all attributes; fixed and normal
+	 * @param bool $includeRelations If true, will include loaded relationships
 	 * @return array
 	 */
 	public function getAllAttributes( $includeRelations = false ) {
 		return array_merge(
 			$this->getFixedAttributes(),
-			static::fixAttributes( $this->getAttributes() )
+			static::fixAttributes( $this->getAttributes() ),
+			$includeRelations ? $this->relationships->all() : []
 		);
 	}
 
 	/**
 	 * API array representation of this model
 	 *
-	 * @param int $relationsDepth Current depth of relations loaded. Default = 1
+	 * @param int $relationsDepth Current depth of relationships loaded. Default = 1
 	 * @param bool $hideSelfLinkQuery Don't add query info to self link for Models
 	 * @return array
 	 */
 	public function toApiArray( $relationsDepth = 0, $hideSelfLinkQuery = false ) {
-		// @todo: Handle loading relations
+		// @todo: Handle loading relationships
 		$attributes = $this->getAttributes();
 
 		return [
 			'data' => $attributes,
-			'relations' => $this->relations,
+			'relationships' => $this->relationships,
 			'links' => $this->links
 		];
 	}
@@ -279,7 +283,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	/**
 	 * Finds records with the given criteria
 	 *
-	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
+	 * @param string|array|object|XURL $attributes Pre-populate with attributes. @see self::fixAttributes()
 	 * @return ModelCollection
 	 */
 	public function get( $attributes = [] ) {
@@ -327,18 +331,18 @@ class RestfulRecord extends ContentHouseApiRequest
 			$record->data = array_merge( $creatorAttributes, (array)$record->data );
 		}
 
-		// make all relations RestfulRecord objects
-		Common::array_walk_recursive( $record->relations, function( &$item ) {
-			if ( !( $item instanceof RestfulRecord ) && isset( $item->data ) && isset( $item->links ) && isset( $item->relations ) ) {
+		// make all relationships RestfulRecord objects
+		Common::array_walk_recursive( $record->relationships, function( &$item ) {
+			if ( !( $item instanceof RestfulRecord ) && isset( $item->data ) && isset( $item->links ) && isset( $item->relationships ) ) {
 				$tmp = RestfulRecord::create( $item->data ?? [], true );
-				$tmp->relations = $item->relations ?? new \stdClass();
+				$tmp->relationships = new ModelCollection( (array)$item->relationships );
 				$tmp->links = $item->links ?? [];
 				$item = $tmp;
 			}
 		} );
 
 		$tmp = static::create( $record->data ?? [], true );
-		$tmp->relations = $record->relations ?? new \stdClass();
+		$tmp->relationships = new ModelCollection( (array)$record->relationships );
 		$tmp->links = $record->links ?? [];
 
 		return $tmp;
@@ -347,7 +351,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	/**
 	 * Same as get(), but will get first item
 	 *
-	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
+	 * @param string|array|object|XURL $attributes Pre-populate with attributes. @see self::fixAttributes()
 	 * @return RestfulRecord
 	 */
 	public function find( $attributes = [] ) {
@@ -416,7 +420,16 @@ class RestfulRecord extends ContentHouseApiRequest
 			return true;
 		}
 		else {
-			$this->setError( [ 'code' => $response->statusCode, 'message' => $response->message, 'response' => $this->getLastResponse() ] );
+			$headers = $this->getLastResponse()->getHeaders();
+			$headers = array_combine( array_keys( $headers ), array_flatten( $headers ) );
+			$this->setError( [
+				'code' => $response->statusCode,
+				'message' => $response->message,
+				'response' => [
+					'headers' => $headers,
+					'body' => $this->getLastResponse()->getBody()->getContents()
+				]
+			] );
 
 			return false;
 		}
@@ -486,17 +499,85 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
+	 * Gets all relationships
+	 *
 	 * @return ModelCollection
 	 */
 	public function getRelationships() {
-		return new ModelCollection( $this->relations ?? new \stdClass() );
+		return $this->relationships;
 	}
 
 	/**
-	 * @return XUrl
+	 * Sets all relationships
+	 *
+	 * @param ModelCollection $relationships
+	 * @return $this Chainnable method
+	 */
+	public function setRelationships( ModelCollection $relationships ) {
+		$this->relationships = $relationships;
+
+		return $this;
+	}
+
+	/**
+	 * Gets relationship object on this record.
+	 *
+	 * @param string $relationshipKey
+	 * @return RestfulRecord|ModelCollection|null Null if no relationship found.
+	 */
+	public function getRelationship( $relationshipKey ) {
+		return $this->relationships->get( $relationshipKey );
+	}
+
+	/**
+	 * Sets relationship object and value on this record.
+	 *
+	 * @param string $relationshipKey
+	 * @param RestfulRecord|ModelCollection $relationshipValue
+	 * @return $this
+	 */
+	public function setRelationship( $relationshipKey, $relationshipValue ) {
+		$this->relationships->offsetSet( $relationshipKey, $relationshipValue );
+		if ( $relationshipValue instanceof RestfulRecord ) {
+			$this->{$relationshipKey} = $relationshipValue->getXURL()->serviceUrl;
+		}
+		else if ( $relationshipValue instanceof ModelCollection ) {
+			$this->{$relationshipKey} = $relationshipValue->getXURLs()->pluck( 'serviceUrl' )->all();
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Removes relationship object and value from this record.
+	 *
+	 * @param string $relationshipKey
+	 * @return RestfulRecord|ModelCollection|null Original relationship object. Null if no relationship found.
+	 */
+	public function removeRelationship( $relationshipKey ) {
+		$relationship = $this->getRelationship( $relationshipKey );
+
+		$this->relationships->offsetUnset( $relationshipKey );
+		unset( $this->{$relationshipKey} );
+
+		return $relationship;
+	}
+
+	/**
+	 * Checks if there is an existing relationship
+	 *
+	 * @param string $relationshipKey
+	 * @return bool
+	 */
+	public function hasRelationship( $relationshipKey ) {
+		return $this->relationships->offsetExists( $relationshipKey );
+	}
+
+	/**
+	 * @return XURL
 	 */
 	public function getXURL() {
-		return XUrl::createFromRecord( $this );
+		return XURL::createFromRecord( $this );
 	}
 
 	public function __toString() {
@@ -573,7 +654,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	/**
 	 * Finds records with the given criteria
 	 *
-	 * @param string|array|object|XUrl $attributes Pre-populate with attributes. @see self::fixAttributes()
+	 * @param string|array|object|XURL $attributes Pre-populate with attributes. @see self::fixAttributes()
 	 * @param callable $createFunction Signature: function(\StdClass $record, array $creatorAttributes) : static
 	 * @return ModelCollection
 	 */
