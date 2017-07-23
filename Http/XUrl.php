@@ -16,16 +16,25 @@ class XUrl
 {
 	/** @var string $service Name of the service or site */
 	public $service;
+
 	/** @var int $version Version of service determined by URL */
 	public $version;
+
 	/** @var string Slug of requested resource */
 	public $requestedResource;
+
 	/** @var string $url Reconstructed URL */
 	public $url;
-	/** @var string $serviceUrl The URL to make requests to the service */
+
+	/** @var string $serviceUrl Reconstructed internal entry URL */
 	public $serviceUrl;
+
+	/** @var string $apiUrl The URL to make requests to the service */
+	public $apiUrl;
+
 	/** @var string $originalUrl Original URL given */
 	public $originalUrl;
+
 	/** @var string $request Path + query + hash */
 	public $request;
 
@@ -36,6 +45,9 @@ class XUrl
 	public $query;
 	public $fragment;
 
+	/** @var array Pre-loaded info about all supported services by this app */
+	protected static $servicesInfo;
+
 	/**
 	 * XURL constructor.
 	 *
@@ -44,7 +56,9 @@ class XUrl
 	public function __construct( $url = null ) {
 		$this->originalUrl = $url;
 
-		$this->parse();
+		$this->prepareServicesInfo()
+			->parse()
+		;
 	}
 
 	/**
@@ -151,7 +165,9 @@ class XUrl
 			$version = $matches[ 1 ] ?? null;
 		}
 
-		return intval( $version ) ?? null;
+		$version = intval( $version );
+
+		return $version ? $version : null;
 	}
 
 	/**
@@ -232,12 +248,12 @@ class XUrl
 
 		// service URL
 		if ( $this->requestedResource == '/' ) {
-			$this->serviceUrl = $this->url;
+			$this->apiUrl = $this->url;
 		}
 		else {
-			preg_match( "|(/api(?=/v?\d+)?)(?=/.*)?|", $this->path, $matches );
+//			preg_match( "|(/api(?=/v?\d+)?)(?=/.*)?|", $this->path, $matches );
 			$path = substr( $this->path, 0, strpos( $this->path, $this->requestedResource ) );
-			$this->serviceUrl = rtrim( $firstPart . $path, '/' );
+			$this->apiUrl = rtrim( $firstPart . $path, '/' );
 		}
 
 		return $this;
@@ -252,17 +268,16 @@ class XUrl
 	protected function parseUrl( $url ) {
 		$purl = parse_url( $url ) ?? [];
 		if ( !empty( $purl[ 'host' ] ) ) {
-			preg_match( '|([^\.]+)(?=\..+)?|', $purl[ 'host' ], $matches );
-			if ( !empty( $matches[ 1 ] ) ) {
-				$purl[ 'service' ] = $matches[ 1 ];
+			$serviceInfo = static::getServiceInfoByUrl( $url );
+			if ( $serviceInfo ) {
+				$purl[ 'service' ] = $serviceInfo[ 'name' ];
 			}
 
 			// fix request
-			$pxurl[ 'request' ] = $this->getRequestPart( $purl[ 'host' ], $purl[ 'path' ], $url );
+			$purl[ 'request' ] = $this->getRequestPart( $purl[ 'host' ], $purl[ 'path' ], $url );
 		}
-
-		// fix name
-		if ( empty( $purl[ 'service' ] ) ) {
+		// its most likely a local service
+		else {
 			$purl[ 'service' ] = config( 'app.serviceName' );
 		}
 
@@ -274,6 +289,10 @@ class XUrl
 		// fix version
 		if ( empty( $purl[ 'version' ] ) ) {
 			$purl[ 'version' ] = $this->getVersion( $purl[ 'service' ], $purl[ 'path' ] );
+		}
+
+		if ( empty( $purl[ 'serviceUrl' ] ) ) {
+			$purl[ 'serviceUrl' ] = $this->getServiceUrl( $purl );
 		}
 
 		return $purl;
@@ -305,9 +324,9 @@ class XUrl
 
 		// i.e.
 		// from...
-		// content:{version}//ixavier.com/app/{slug}
-		// content:{version}//ixavier.com/{type}/{app}
-		// content:{version}//ixavier.com/{type}/{app}/{slug}
+		// content:{version}//ixavier.com/{app}/{slug}
+		// content:{version}//ixavier.com/{app}/{type}/{app}
+		// content:{version}//ixavier.com/{app}/{type}/{app}/{slug}
 
 		// to...
 		// external global = //content.ixavier.com/api/{version}/app/{slug}
@@ -323,7 +342,9 @@ class XUrl
 		$pxurl[ 'request' ] = !empty( $matches[ 4 ] ) ? $matches[ 4 ] : '/';
 
 		// now merge with service
-		if ( !empty( $pxurl[ 'service' ] ) && ( $surl = config( 'services.' . $pxurl[ 'service' ] . '.url' ) ) ) {
+		$serviceInfo = static::getServiceInfo( $pxurl[ 'service' ] );
+		if ( $serviceInfo ) {
+			$surl = $serviceInfo[ 'url' ];
 			$surl = rtrim( $surl, '/' ) . $pxurl[ 'request' ];
 			$psurl = parse_url( $surl );
 			if ( $psurl[ 'path' ] != '/' ) {
@@ -354,6 +375,10 @@ class XUrl
 			$pxurl[ 'version' ] = $this->getVersion( $pxurl[ 'service' ], $pxurl[ 'path' ] ?? '/' );
 		}
 
+		if ( empty( $pxurl[ 'serviceUrl' ] ) ) {
+			$pxurl[ 'serviceUrl' ] = $url;
+		}
+
 		return $pxurl;
 	}
 
@@ -362,18 +387,15 @@ class XUrl
 	 * Based on $uri, will crete new instaces of subclasses of this
 	 *
 	 * @param string $uri
-	 * @return static
+	 * @return self
 	 */
 	public static function create( $uri ) {
 		$tmp = new static( $uri );
 
 		if ( $tmp->isValid() ) {
 			if ( !empty( $tmp->service ) ) {
-				$className = config( 'services.' . $tmp->service . '.url_scheme' );
-				if ( empty( $className ) ) {
-					$className = Common::getClassNamespace( self::class ) . '\\' . ucfirst( $tmp->service ) . 'XUrl';
-				}
-
+				$serviceInfo = static::getServiceInfo( $tmp->service );
+				$className = $serviceInfo[ 'url_scheme' ] ?? Common::getClassNamespace( self::class ) . '\\' . ucfirst( $tmp->service ) . 'XUrl';
 				if ( class_exists( $className ) ) {
 					$tmp = $tmp->clone( $className );
 				}
@@ -381,5 +403,76 @@ class XUrl
 		}
 
 		return $tmp;
+	}
+
+	/**
+	 * @param RestfulRecord $record
+	 * @return self
+	 */
+	public static function createFromRecord( $record ) {
+		$url = $record->getUrlBase()
+			. ( $record->getPath() ? rtrim( $record->getPath(), '/' ) . '/' : '' )
+			. ( $record->slug ?? '' );
+
+		return static::create( $url );
+	}
+
+	/**
+	 * Given an array from self::parseUrl(), will get record string to save in data-store.
+	 * @param array $purl
+	 * @return null|string
+	 */
+	protected function getServiceUrl( $purl ) {
+		$serviceInfo = static::getServiceInfo( $purl[ 'service' ] );
+
+		if ( $serviceInfo ) {
+			return $serviceInfo[ 'name' ] . ':' . $purl[ 'version' ] . '//'
+				. $purl[ 'requestedResource' ];
+		}
+
+		return null;
+	}
+
+	/**
+	 * Pre-loads all information about supported services by this app
+	 * @return $this Chainnable method
+	 */
+	private function prepareServicesInfo() {
+		if ( !isset( static::$servicesInfo ) ) {
+			static::$servicesInfo = [];
+			$servicesInfo = config( 'services' ) ?? [];
+			foreach ( $servicesInfo as $serviceName => $serviceInfo ) {
+				if ( isset( $serviceInfo[ 'url' ] ) ) {
+					static::$servicesInfo[ $serviceName ] = strtolower( parse_url( $serviceInfo[ 'url' ], PHP_URL_HOST ) );
+				}
+			}
+		}
+
+		return $this;
+	}
+
+	/**
+	 * @param string $serviceName Name of the service
+	 * @return array|null Returns null if not a supported service by this app
+	 */
+	protected static function getServiceInfo( $serviceName ) {
+		if ( array_key_exists( $serviceName, static::$servicesInfo ) ) {
+			return array_merge( [ 'name' => $serviceName ], config( 'services.' . $serviceName ) ?? [] );
+		}
+
+		return null;
+	}
+
+	/**
+	 * @param string $url URL of the service
+	 * @return array|null Returns null if not a supported service by this app
+	 */
+	protected static function getServiceInfoByUrl( $url ) {
+		$serviceName = array_search( strtolower( parse_url( $url, PHP_URL_HOST ) ), static::$servicesInfo );
+		if ( $serviceName ) {
+			return array_merge( [ 'name' => $serviceName ], config( 'services.' . $serviceName ) ?? [] );
+		}
+
+		return null;
 	}
 }

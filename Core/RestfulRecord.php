@@ -236,8 +236,11 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * Gets all attributes; fixed and normal
 	 * @return array
 	 */
-	public function getAllAttributes() {
-		return array_merge( $this->getFixedAttributes(), static::fixAttributes( $this->getAttributes() ) );
+	public function getAllAttributes( $includeRelations = false ) {
+		return array_merge(
+			$this->getFixedAttributes(),
+			static::fixAttributes( $this->getAttributes() )
+		);
 	}
 
 	/**
@@ -328,14 +331,14 @@ class RestfulRecord extends ContentHouseApiRequest
 		Common::array_walk_recursive( $record->relations, function( &$item ) {
 			if ( !( $item instanceof RestfulRecord ) && isset( $item->data ) && isset( $item->links ) && isset( $item->relations ) ) {
 				$tmp = RestfulRecord::create( $item->data ?? [], true );
-				$tmp->relations = $item->relations ?? [];
+				$tmp->relations = $item->relations ?? new \stdClass();
 				$tmp->links = $item->links ?? [];
 				$item = $tmp;
 			}
 		} );
 
 		$tmp = static::create( $record->data ?? [], true );
-		$tmp->relations = $record->relations ?? [];
+		$tmp->relations = $record->relations ?? new \stdClass();
 		$tmp->links = $record->links ?? [];
 
 		return $tmp;
@@ -486,7 +489,14 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return ModelCollection
 	 */
 	public function getRelationships() {
-		return new ModelCollection( $this->relations ?? [] );
+		return new ModelCollection( $this->relations ?? new \stdClass() );
+	}
+
+	/**
+	 * @return XUrl
+	 */
+	public function getXURL() {
+		return XUrl::createFromRecord( $this );
 	}
 
 	public function __toString() {
@@ -634,9 +644,10 @@ class RestfulRecord extends ContentHouseApiRequest
 				}
 			}
 			else {
-				$tmp = new RestfulRecord( $attributes );
-				$tmp->setError( [ 'code' => $response->statusCode, 'message' => $response->message, 'response' => $this->getLastResponse() ] );
-				$col->push( $tmp );
+				// @todo: find another way to handle errors
+//				$tmp = new RestfulRecord( $attributes );
+//				$tmp->setError( [ 'code' => $response->statusCode, 'message' => $response->message, 'response' => $this->getLastResponse() ] );
+//				$col->push( $tmp );
 			}
 
 			static::$_collections[ $cachedKey ] = $col;

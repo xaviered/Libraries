@@ -28,6 +28,19 @@ class ModelCollection extends Collection
 		return $this->all();
 	}
 
+	/**
+	 * Returns new collection with XURL representation of the Records
+	 * @return static
+	 */
+	public function getXURLs() {
+		$xurls = new static();
+		$this->each( function( RestfulRecord $record ) use ( $xurls ) {
+			return $xurls->push( $record->getXURL() );
+		} );
+
+		return $xurls;
+	}
+
 	// @todo: add pagination
 	/**
 	 * API array representation of this collection

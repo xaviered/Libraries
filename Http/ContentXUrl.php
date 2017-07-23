@@ -19,7 +19,7 @@ class ContentXUrl extends XUrl
 	 */
 	public function getRestfulRecordAttributes($keepSlug=false) {
 		$attributes = RestfulRecord::fixAttributesFromPath( $this->requestedResource, $keepSlug );
-		$attributes[ '__url' ] = $this->serviceUrl;
+		$attributes[ '__url' ] = $this->apiUrl;
 
 		return $attributes;
 	}
