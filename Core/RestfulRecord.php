@@ -1,4 +1,5 @@
 <?php
+
 namespace ixavier\Libraries\Core;
 
 use GuzzleHttp\Psr7\Response;
@@ -11,6 +12,7 @@ use ixavier\Libraries\RestfulRecords\App;
 // @todo: Add ability to do multiple requests at the same time, by using $this->newQuery()->where($attributes)->get()
 // For immediate calls, we can also do $this->newQuery()->get($attributes)
 //
+
 /**
  * Class RestfulRecord represents one record of a given type
  *
