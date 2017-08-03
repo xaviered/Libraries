@@ -12,10 +12,7 @@
     "illuminate/console": "^5.4"
   },
   "autoload": {
-    "psr-4": {
-      "App\\": "./",
-      "ixavier\\Libraries\\" : "./"
-    }
+    "psr-4": { "ixavier\\Libraries\\" : "" }
   },
   "authors": [
     {
