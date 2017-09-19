@@ -22,10 +22,5 @@
       "name": "Edison Calle",
       "email": "edison@ixavier.com"
     }
-  ],
-  "extra": {
-    "branch-alias": {
-      "dev-master": "0.1.x-dev"
-    }
-  }
+  ]
 }
