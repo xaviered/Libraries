@@ -1,4 +1,5 @@
 <?php
+
 namespace ixavier\Libraries\Server\Core;
 
 use ixavier\Libraries\Server\Console\Console;

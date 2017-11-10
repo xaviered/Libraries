@@ -329,26 +329,43 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return RestfulRecord
 	 */
 	protected function createFromApiRecord( $record, $creatorAttributes ) {
+		// fix data
 		if ( isset( $record->data ) ) {
 			$record->data = array_merge( $creatorAttributes, (array)$record->data );
 		}
 
-		// make all relationships RestfulRecord objects
-		Common::array_walk_recursive( $record->relationships, function( &$item ) {
-			if ( !( $item instanceof RestfulRecord ) && isset( $item->data ) && isset( $item->links ) && isset( $item->relationships ) ) {
-				$tmp = RestfulRecord::create( $item->data ?? [], true );
-				$tmp->relationships = new ModelCollection( (array)$item->relationships );
-				$tmp->links = $item->links ?? [];
-				$item = $tmp;
-			}
-		} );
+		// pre-load all relationships
+		$relationships = new ModelCollection();
+		if ( isset( $record->relationships ) ) {
+			$tmpCreator = new RestfulRecord;
+			foreach ( $record->relationships as $relationshipKey => $relationship ) {
+				// single
+				if ( !( $relationship instanceof RestfulRecord ) && isset( $relationship->data ) ) {
+					$relationship = $tmpCreator->createFromApiRecord( $relationship, $creatorAttributes );
+				}
+				// multi
+				else if ( is_array( $relationship ) ) {
+					$tmpCol = new ModelCollection();
+					foreach ( $relationship as $relationKey => $relation ) {
+						if ( !( $relation instanceof RestfulRecord ) && isset( $relation->data ) ) {
+							$tmpCol->put( $relationKey, $tmpCreator->createFromApiRecord( $relation, $creatorAttributes ) );
+						}
+					}
+					$relationship = $tmpCol;
+				}
 
+				$relationships->put( $relationshipKey, $relationship );
+			}
+		}
+
+		// create instance
 		$tmp = static::create( $record->data ?? [], true );
-		$tmp->relationships = new ModelCollection( (array)$record->relationships );
+		$tmp->relationships = $relationships;
 		$tmp->links = $record->links ?? [];
 
 		return $tmp;
 	}
+
 
 	/**
 	 * Same as get(), but will get first item
@@ -372,11 +389,14 @@ class RestfulRecord extends ContentHouseApiRequest
 	/**
 	 * Save the model to the API
 	 *
-	 * @param  array $options
+	 * @param  array $options Currently available:
+	 *  - ignoreIfExists
+	 *  - overrideIfExists
+	 *  - createSlug: Creates a unique slug. If passing a string, will use as prefix.
 	 * @return bool True if succeeded, false otherwise. Check object's error for details if failed.
 	 */
 	public function save( $options = [] ) {
-		$options = Common::fixOptions( $options, 'ignoreIfExists overrideIfExists' );
+		$options = Common::fixOptions( $options, 'ignoreIfExists overrideIfExists createSlug' );
 		$originalAttributes = $this->getAttributes();
 
 		// get original attributes from builder
@@ -400,6 +420,7 @@ class RestfulRecord extends ContentHouseApiRequest
 			}
 		}
 
+
 		// send update
 		if ( $this->exists() && !empty( $this->slug ) ) {
 			$methodName = 'updateRequest';
@@ -407,6 +428,10 @@ class RestfulRecord extends ContentHouseApiRequest
 		}
 		// send create
 		else {
+			if ( $options[ 'createSlug' ] ) {
+				$prefix = is_string( $options[ 'createSlug' ] ) ? is_string( $options[ 'createSlug' ] ) : null;
+				$attributes[ 'slug' ] = uniqid( $prefix );
+			}
 			$methodName = 'storeRequest';
 			$methodArgs = [ $attributes ];
 		}
@@ -422,16 +447,8 @@ class RestfulRecord extends ContentHouseApiRequest
 			return true;
 		}
 		else {
-			$headers = $this->getLastResponse()->getHeaders();
-			$headers = array_combine( array_keys( $headers ), array_flatten( $headers ) );
-			$this->setError( [
-				'code' => $response->statusCode,
-				'message' => $response->message,
-				'response' => [
-					'headers' => $headers,
-					'body' => $this->getLastResponse()->getBody()->getContents()
-				]
-			] );
+			$response->headers = array_combine( array_keys( $response->headers ), array_flatten( $response->headers ) );
+			$this->setError( $response );
 
 			return false;
 		}
@@ -525,10 +542,20 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * Gets relationship object on this record.
 	 *
 	 * @param string $relationshipKey
-	 * @return RestfulRecord|ModelCollection|null Null if no relationship found.
+	 * @param string $returnInCollectionByKey Will wrap output in ModelCollection with the given column as its main key.
+	 * @return ModelCollection|RestfulRecord Empty ModelCollection if no relationship found. Use `static::hasRelationship()` to truly find out if there is a relationship.
 	 */
-	public function getRelationship( $relationshipKey ) {
-		return $this->relationships->get( $relationshipKey );
+	public function getRelationship( $relationshipKey, $returnInCollectionByKey = null ) {
+		/** @var ModelCollection $relationship */
+		$relationship = $this->getRelationships()->get( $relationshipKey );
+		if ( $relationship && $returnInCollectionByKey ) {
+			$relationship = $relationship->keyBy( $returnInCollectionByKey );
+		}
+		else if ( empty( $relationship ) ) {
+			$relationship = new ModelCollection();
+		}
+
+		return $relationship;
 	}
 
 	/**
@@ -541,10 +568,10 @@ class RestfulRecord extends ContentHouseApiRequest
 	public function setRelationship( $relationshipKey, $relationshipValue ) {
 		$this->relationships->offsetSet( $relationshipKey, $relationshipValue );
 		if ( $relationshipValue instanceof RestfulRecord ) {
-			$this->{$relationshipKey} = $relationshipValue->getXURL()->serviceUrl;
+			$this->setAttribute( $relationshipKey, $relationshipValue->getXURL()->serviceUrl );
 		}
 		else if ( $relationshipValue instanceof ModelCollection ) {
-			$this->{$relationshipKey} = $relationshipValue->getXURLs()->pluck( 'serviceUrl' )->all();
+			$this->setAttribute( $relationshipKey, $relationshipValue->getXURLs()->pluck( 'serviceUrl' )->all() );
 		}
 
 		return $this;
@@ -554,13 +581,18 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * Removes relationship object and value from this record.
 	 *
 	 * @param string $relationshipKey
-	 * @return RestfulRecord|ModelCollection|null Original relationship object. Null if no relationship found.
+	 * @param bool $deleteRelationshipRecord If true, will also remove the record itself from datastore
+	 * @return ModelCollection|RestfulRecord|null Original relationship object. Null if no relationship found.
 	 */
-	public function removeRelationship( $relationshipKey ) {
+	public function removeRelationship( $relationshipKey, $deleteRelationshipRecord = false ) {
 		$relationship = $this->getRelationship( $relationshipKey );
 
 		$this->relationships->offsetUnset( $relationshipKey );
 		unset( $this->{$relationshipKey} );
+
+		if ( $deleteRelationshipRecord ) {
+			$relationship->delete();
+		}
 
 		return $relationship;
 	}
@@ -572,7 +604,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return bool
 	 */
 	public function hasRelationship( $relationshipKey ) {
-		return $this->relationships->offsetExists( $relationshipKey );
+		return $this->getRelationships()->offsetExists( $relationshipKey );
 	}
 
 	/**
@@ -711,6 +743,9 @@ class RestfulRecord extends ContentHouseApiRequest
 			if ( !$response->error ) {
 				if ( $methodName == 'showRequest' ) {
 					$recordData = $response->data;
+					if ( $recordData[ 'type' ] == 'app' ) {
+						$fixedAttributes[ '__app' ] = $recordData[ 'slug' ];
+					}
 					if ( $createFunction ) {
 						$recordData = call_user_func_array( $createFunction, [ $recordData, $fixedAttributes ] );
 					}

@@ -149,7 +149,7 @@ class XURL
 	protected function parseRequestedResource( $path ) {
 		preg_match( "|/api(/v\d+)?(/.*)?|", $path, $matches );
 
-		return $matches[ 2 ] ?? ( $matches[ 1 ] ? '/' : $path );
+		return $matches[ 2 ] ?? ( isset($matches[ 1 ]) ? '/' : $path );
 	}
 
 	/**
@@ -271,6 +271,9 @@ class XURL
 			$serviceInfo = static::getServiceInfoByUrl( $url );
 			if ( $serviceInfo ) {
 				$purl[ 'service' ] = $serviceInfo[ 'name' ];
+			}
+			else {
+				$purl[ 'service' ] = '';
 			}
 
 			// fix request

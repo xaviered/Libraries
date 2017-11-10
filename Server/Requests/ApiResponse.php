@@ -17,8 +17,14 @@ class ApiResponse
 	/** @var array|\stdClass  */
 	public $data = [];
 
+	/** @var array */
+	public $headers = [];
+
 	/** @var int */
 	public $statusCode;
+
+	/** @var array */
+	public $request = [];
 
 	/** @return string String representation of this class */
 	public function __toString() {

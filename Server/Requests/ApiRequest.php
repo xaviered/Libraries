@@ -1,4 +1,5 @@
 <?php
+
 namespace ixavier\Libraries\Server\Requests;
 
 use GuzzleHttp\Client as HttpClient;
@@ -107,12 +108,7 @@ abstract class ApiRequest
 		$url = $this->prepareUrl( null, $queryParams );
 		Log::info( "INDEX: $url" );
 
-		return $this->getApiResponse(
-			$this->httpClient->get(
-				$url,
-				static::$defaultRequestOptions
-			)
-		);
+		return $this->getApiResponse( 'get', $url, static::$defaultRequestOptions );
 	}
 
 	/**
@@ -130,12 +126,7 @@ abstract class ApiRequest
 		$url = $this->prepareUrl( null, $queryParams );
 		Log::info( "STORE: $url \n" . $options[ 'body' ] );
 
-		return $this->getApiResponse(
-			$this->httpClient->post(
-				$url,
-				$options
-			)
-		);
+		return $this->getApiResponse( 'post', $url, $options );
 	}
 
 	/**
@@ -149,12 +140,7 @@ abstract class ApiRequest
 		$url = $this->prepareUrl( $slug, $queryParams );
 		Log::info( "SHOW: $url" );
 
-		return $this->getApiResponse(
-			$this->httpClient->get(
-				$url,
-				static::$defaultRequestOptions
-			)
-		);
+		return $this->getApiResponse( 'get', $url, static::$defaultRequestOptions );
 	}
 
 	/**
@@ -173,12 +159,7 @@ abstract class ApiRequest
 		$url = $this->prepareUrl( $slug, $queryParams );
 		Log::info( "UPDATE: $url \n" . $options[ 'body' ] );
 
-		return $this->getApiResponse(
-			$this->httpClient->patch(
-				$url,
-				$options
-			)
-		);
+		return $this->getApiResponse( 'patch', $url, $options );
 	}
 
 	/**
@@ -192,12 +173,7 @@ abstract class ApiRequest
 		$url = $this->prepareUrl( $slug, $queryParams );
 		Log::info( "DELETE: $url" );
 
-		return $this->getApiResponse(
-			$this->httpClient->delete(
-				$url,
-				static::$defaultRequestOptions
-			)
-		);
+		return $this->getApiResponse( 'delete', $url, static::$defaultRequestOptions );
 	}
 
 	/**
@@ -208,22 +184,33 @@ abstract class ApiRequest
 	}
 
 	/**
-	 * @param Response|ResponseInterface $response
+	 * Makes the actual request
+	 *
+	 * @param string $method
+	 * @param string $url
+	 * @param array $options
 	 * @return ApiResponse
 	 */
-	protected function getApiResponse( Response $response ) {
-		$this->lastResponse = $response;
+	protected function getApiResponse( $method, $url, $options ) {
+		$response = $this->httpClient->{$method}( $url, $options );
 
 		$apiResponse = new ApiResponse();
 		$apiResponse->error = true;
-		$apiResponse->message = 'Server Timeout';
+		$apiResponse->message = $response->getReasonPhrase();
 		$apiResponse->statusCode = 500;
+		$apiResponse->request = [
+			'method' => $method,
+			'url' => $url,
+			'options' => $options
+		];
 
 		if ( $response ) {
-			$jsonResponse = json_decode( $response->getBody() );
+			$apiResponse->headers = $response->getHeaders();
+			$apiResponse->data = $response->getBody()->getContents();
+			$jsonResponse = json_decode( $apiResponse->data );
+
 			if ( empty( $jsonResponse ) || $jsonResponse === FALSE ) {
 				$apiResponse->message = 'Internal Server Error';
-				$apiResponse->data = $response->getBody();
 			}
 			else {
 				$apiResponse->data = $jsonResponse;
@@ -232,6 +219,8 @@ abstract class ApiRequest
 				$apiResponse->statusCode = $response->getStatusCode();
 			}
 		}
+
+		$this->lastResponse = $response;
 
 		return $apiResponse;
 	}

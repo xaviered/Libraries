@@ -1,4 +1,5 @@
 <?php
+
 namespace ixavier\Libraries\Server\Core;
 
 use Illuminate\Support\Collection;
@@ -41,7 +42,29 @@ class ModelCollection extends Collection
 		return $xurls;
 	}
 
+	/**
+	 * Removes all models from the data store and remove them from this collection.
+	 * If any of them failed they will stay in this collection.
+	 *
+	 * @return bool True if succeeded, false otherwise.
+	 */
+	public function delete() {
+		foreach ( $this->items as $key => $item ) {
+			if ( $item instanceof ModelCollection || $item instanceof RestfulRecord ) {
+				if ( $item->delete() ) {
+					$this->offsetUnset( $key );
+				}
+			}
+			else {
+				$this->offsetUnset( $key );
+			}
+		}
+
+		return $this->count() == 0;
+	}
+
 	// @todo: add pagination
+
 	/**
 	 * API array representation of this collection
 	 *
