@@ -429,7 +429,7 @@ class RestfulRecord extends ContentHouseApiRequest
 		// send create
 		else {
 			if ( $options[ 'createSlug' ] ) {
-				$prefix = is_string( $options[ 'createSlug' ] ) ? is_string( $options[ 'createSlug' ] ) : null;
+				$prefix = is_string( $options[ 'createSlug' ] ) ? $options[ 'createSlug' ] : 'o';
 				$attributes[ 'slug' ] = uniqid( $prefix );
 			}
 			$methodName = 'storeRequest';

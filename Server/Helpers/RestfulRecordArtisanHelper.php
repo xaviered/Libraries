@@ -110,7 +110,7 @@ trait RestfulRecordArtisanHelper
 	/**
 	 * @return App
 	 */
-	public function getApp(): App {
+	public function getApp() {
 		return $this->app;
 	}
 
