@@ -22,8 +22,8 @@
         <div class="slides" data-u="slides"
              style="cursor: move; position: absolute; overflow: hidden; left: 0px; top: 0px; width: 1018px; height: 508px;">
             @foreach( $slides as $slide )
-                @if( $slide->hasRelationship('image') )
-                    <div class="slide"><img data-u="image" src="{{ $slide->getRelationship('image')->src }}" /></div>
+                @if( $slide->hasRelation('image') )
+                    <div class="slide"><img data-u="image" src="{{ $slide->getRelation('image')->src }}" /></div>
                 @elseif( isset($slide->image) )
                     <div class="slide"><img data-u="image" src="{{ $slide->image }}"/></div>
                 @else

@@ -52,8 +52,8 @@ trait RestfulRecordArtisanHelper
 	 */
 	protected function _buildLogo( $default = [] ) {
 		// logo
-		if ( !$this->app->hasRelationship( 'logo' ) ) {
-			$this->app->setRelationship( 'logo', $this->buildResources( [ $default ], 'logo' )->first() );
+		if ( !$this->app->hasRelation( 'logo' ) ) {
+			$this->app->setRelation( 'logo', $this->buildResources( [ $default ], 'logo' )->first() );
 		}
 
 		return $this;
@@ -97,6 +97,15 @@ trait RestfulRecordArtisanHelper
 
 		return $col;
 	}
+
+	protected function removeResources($resources) {
+	    foreach($resources as $resourceKey => $resourceInfo) {
+	        $resource = Resource::query()->find($resourceInfo);
+	        if($resource) {
+                $resource->delete();
+            }
+        }
+    }
 
 	/**
 	 * @return App

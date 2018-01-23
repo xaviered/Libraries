@@ -14,14 +14,14 @@ use ixavier\Libraries\Server\RestfulRecords\Resource;
 trait HasCategories
 {
 	public function setCategories( ModelCollection $categories ) {
-		$this->setRelationship( 'categories', $categories );
+		$this->setRelation( 'categories', $categories );
 	}
 
 	public function getCategories() {
-		if ( !$this->hasRelationship( 'categories' ) ) {
-			$this->setRelationship( 'categories', new ModelCollection() );
+		if ( !$this->hasRelation( 'categories' ) ) {
+			$this->setRelation( 'categories', new ModelCollection() );
 		}
 
-		return $this->getRelationship( 'categories' );
+		return $this->getRelation( 'categories' );
 	}
 }

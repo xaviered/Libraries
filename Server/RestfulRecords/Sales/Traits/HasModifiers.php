@@ -14,14 +14,14 @@ use ixavier\Libraries\Server\RestfulRecords\Resource;
 trait HasModifiers
 {
 	public function setModifiers( ModelCollection $modifiers ) {
-		$this->setRelationship( 'modifiers', $modifiers );
+		$this->setRelation( 'modifiers', $modifiers );
 	}
 
 	public function getModifiers() {
-		if ( !$this->hasRelationship( 'modifiers' ) ) {
-			$this->setRelationship( 'modifiers', new ModelCollection() );
+		if ( !$this->hasRelation( 'modifiers' ) ) {
+			$this->setRelation( 'modifiers', new ModelCollection() );
 		}
 
-		return $this->getRelationship( 'modifiers' );
+		return $this->getRelation( 'modifiers' );
 	}
 }

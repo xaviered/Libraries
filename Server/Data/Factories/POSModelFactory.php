@@ -31,7 +31,7 @@ class POSModelFactory extends DataFactoryInterface
 	public function defineProduct() {
 		$this->factory->define( Product::class, function( Generator $faker ) {
 			return [
-				// ixavier library details
+				// ixavier library required fields
 				'type' => 'product',
 				'slug' => $faker->slug(),
 

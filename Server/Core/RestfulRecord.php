@@ -36,7 +36,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	public $links;
 
 	/** @var ModelCollection Related content */
-	public $relationships;
+	public $relations;
 
 	/** @var array Special runtime attributes */
 	public static $specialAttributes = [ '__app', '__path', '__url', ];
@@ -72,7 +72,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 *          Can also be full request, therefore `__path`, and `type` will be determined based on this.
 	 */
 	public function __construct( $attributes = [] ) {
-		$this->relationships = new ModelCollection();
+		$this->relations = new ModelCollection();
 
 		parent::__construct();
 		$this->setAttributes( $attributes );
@@ -238,31 +238,31 @@ class RestfulRecord extends ContentHouseApiRequest
 
 	/**
 	 * Gets all attributes; fixed and normal
-	 * @param bool $includeRelations If true, will include loaded relationships
+	 * @param bool $includeRelations If true, will include loaded relations
 	 * @return array
 	 */
 	public function getAllAttributes( $includeRelations = false ) {
 		return array_merge(
 			$this->getFixedAttributes(),
 			static::fixAttributes( $this->getAttributes() ),
-			$includeRelations ? $this->relationships->all() : []
+			$includeRelations ? $this->relations->all() : []
 		);
 	}
 
 	/**
 	 * API array representation of this model
 	 *
-	 * @param int $relationsDepth Current depth of relationships loaded. Default = 1
+	 * @param int $relationsDepth Current depth of relations loaded. Default = 1
 	 * @param bool $hideSelfLinkQuery Don't add query info to self link for Models
 	 * @return array
 	 */
 	public function toApiArray( $relationsDepth = 0, $hideSelfLinkQuery = false ) {
-		// @todo: Handle loading relationships
+		// @todo: Handle loading relations
 		$attributes = $this->getAttributes();
 
 		return [
 			'data' => $attributes,
-			'relationships' => $this->relationships,
+			'relations' => $this->relations,
 			'links' => $this->links
 		];
 	}
@@ -334,33 +334,33 @@ class RestfulRecord extends ContentHouseApiRequest
 			$record->data = array_merge( $creatorAttributes, (array)$record->data );
 		}
 
-		// pre-load all relationships
-		$relationships = new ModelCollection();
-		if ( isset( $record->relationships ) ) {
+		// pre-load all relations
+		$relations = new ModelCollection();
+		if ( isset( $record->relations ) ) {
 			$tmpCreator = new RestfulRecord;
-			foreach ( $record->relationships as $relationshipKey => $relationship ) {
+			foreach ( $record->relations as $relationKey => $relation ) {
 				// single
-				if ( !( $relationship instanceof RestfulRecord ) && isset( $relationship->data ) ) {
-					$relationship = $tmpCreator->createFromApiRecord( $relationship, $creatorAttributes );
+				if ( !( $relation instanceof RestfulRecord ) && isset( $relation->data ) ) {
+					$relation = $tmpCreator->createFromApiRecord( $relation, $creatorAttributes );
 				}
 				// multi
-				else if ( is_array( $relationship ) ) {
+				else if ( is_array( $relation ) ) {
 					$tmpCol = new ModelCollection();
-					foreach ( $relationship as $relationKey => $relation ) {
+					foreach ( $relation as $relationKey => $relation ) {
 						if ( !( $relation instanceof RestfulRecord ) && isset( $relation->data ) ) {
 							$tmpCol->put( $relationKey, $tmpCreator->createFromApiRecord( $relation, $creatorAttributes ) );
 						}
 					}
-					$relationship = $tmpCol;
+					$relation = $tmpCol;
 				}
 
-				$relationships->put( $relationshipKey, $relationship );
+				$relations->put( $relationKey, $relation );
 			}
 		}
 
 		// create instance
 		$tmp = static::create( $record->data ?? [], true );
-		$tmp->relationships = $relationships;
+		$tmp->relations = $relations;
 		$tmp->links = $record->links ?? [];
 
 		return $tmp;
@@ -518,93 +518,93 @@ class RestfulRecord extends ContentHouseApiRequest
 	}
 
 	/**
-	 * Gets all relationships
+	 * Gets all relations
 	 *
 	 * @return ModelCollection
 	 */
-	public function getRelationships() {
-		return $this->relationships;
+	public function getRelations() {
+		return $this->relations;
 	}
 
 	/**
-	 * Sets all relationships
+	 * Sets all relations
 	 *
-	 * @param ModelCollection $relationships
+	 * @param ModelCollection $relations
 	 * @return $this Chainnable method
 	 */
-	public function setRelationships( ModelCollection $relationships ) {
-		$this->relationships = $relationships;
+	public function setRelations( ModelCollection $relations ) {
+		$this->relations = $relations;
 
 		return $this;
 	}
 
 	/**
-	 * Gets relationship object on this record.
+	 * Gets relation object on this record.
 	 *
-	 * @param string $relationshipKey
+	 * @param string $relationKey
 	 * @param string $returnInCollectionByKey Will wrap output in ModelCollection with the given column as its main key.
-	 * @return ModelCollection|RestfulRecord Empty ModelCollection if no relationship found. Use `static::hasRelationship()` to truly find out if there is a relationship.
+	 * @return ModelCollection|RestfulRecord Empty ModelCollection if no relation found. Use `$this->hasRelation()` to truly find out if there is a relation.
 	 */
-	public function getRelationship( $relationshipKey, $returnInCollectionByKey = null ) {
-		/** @var ModelCollection $relationship */
-		$relationship = $this->getRelationships()->get( $relationshipKey );
-		if ( $relationship && $returnInCollectionByKey ) {
-			$relationship = $relationship->keyBy( $returnInCollectionByKey );
+	public function getRelation( $relationKey, $returnInCollectionByKey = null ) {
+		/** @var ModelCollection $relation */
+		$relation = $this->getRelations()->get( $relationKey );
+		if ( $relation && $returnInCollectionByKey ) {
+			$relation = $relation->keyBy( $returnInCollectionByKey );
 		}
-		else if ( empty( $relationship ) ) {
-			$relationship = new ModelCollection();
+		else if ( empty( $relation ) ) {
+			$relation = new ModelCollection();
 		}
 
-		return $relationship;
+		return $relation;
 	}
 
 	/**
-	 * Sets relationship object and value on this record.
+	 * Sets relation object and value on this record.
 	 *
-	 * @param string $relationshipKey
-	 * @param RestfulRecord|ModelCollection $relationshipValue
+	 * @param string $relationKey
+	 * @param RestfulRecord|ModelCollection $relationValue
 	 * @return $this
 	 */
-	public function setRelationship( $relationshipKey, $relationshipValue ) {
-		$this->relationships->offsetSet( $relationshipKey, $relationshipValue );
-		if ( $relationshipValue instanceof RestfulRecord ) {
-			$this->setAttribute( $relationshipKey, $relationshipValue->getXURL()->serviceUrl );
+	public function setRelation( $relationKey, $relationValue ) {
+		$this->relations->offsetSet( $relationKey, $relationValue );
+		if ( $relationValue instanceof RestfulRecord ) {
+			$this->setAttribute( $relationKey, $relationValue->getXURL()->serviceUrl );
 		}
-		else if ( $relationshipValue instanceof ModelCollection ) {
-			$this->setAttribute( $relationshipKey, $relationshipValue->getXURLs()->pluck( 'serviceUrl' )->all() );
+		else if ( $relationValue instanceof ModelCollection ) {
+			$this->setAttribute( $relationKey, $relationValue->getXURLs()->pluck( 'serviceUrl' )->all() );
 		}
 
 		return $this;
 	}
 
 	/**
-	 * Removes relationship object and value from this record.
+	 * Removes relation object and value from this record.
 	 *
-	 * @param string $relationshipKey
-	 * @param bool $deleteRelationshipRecord If true, will also remove the record itself from datastore
-	 * @return ModelCollection|RestfulRecord|null Original relationship object. Null if no relationship found.
+	 * @param string $relationKey
+	 * @param bool $deleteRelationRecord If true, will also remove the record itself from datastore
+	 * @return ModelCollection|RestfulRecord|null Original relation object. Null if no relation found.
 	 */
-	public function removeRelationship( $relationshipKey, $deleteRelationshipRecord = false ) {
-		$relationship = $this->getRelationship( $relationshipKey );
+	public function removeRelation( $relationKey, $deleteRelationRecord = false ) {
+		$relation = $this->getRelation( $relationKey );
 
-		$this->relationships->offsetUnset( $relationshipKey );
-		unset( $this->{$relationshipKey} );
+		$this->relations->offsetUnset( $relationKey );
+		unset( $this->{$relationKey} );
 
-		if ( $deleteRelationshipRecord ) {
-			$relationship->delete();
+		if ( $deleteRelationRecord ) {
+			$relation->delete();
 		}
 
-		return $relationship;
+		return $relation;
 	}
 
 	/**
-	 * Checks if there is an existing relationship
+	 * Checks if there is an existing relation
 	 *
-	 * @param string $relationshipKey
+	 * @param string $relationKey
 	 * @return bool
 	 */
-	public function hasRelationship( $relationshipKey ) {
-		return $this->getRelationships()->offsetExists( $relationshipKey );
+	public function hasRelation( $relationKey ) {
+		return $this->getRelations()->offsetExists( $relationKey );
 	}
 
 	/**
