@@ -346,9 +346,9 @@ class RestfulRecord extends ContentHouseApiRequest
 				// multi
 				else if ( is_array( $relation ) ) {
 					$tmpCol = new ModelCollection();
-					foreach ( $relation as $relationKey => $relation ) {
+					foreach ( $relation as $relationKey2 => $relation ) {
 						if ( !( $relation instanceof RestfulRecord ) && isset( $relation->data ) ) {
-							$tmpCol->put( $relationKey, $tmpCreator->createFromApiRecord( $relation, $creatorAttributes ) );
+							$tmpCol->put( $relationKey2, $tmpCreator->createFromApiRecord( $relation, $creatorAttributes ) );
 						}
 					}
 					$relation = $tmpCol;
@@ -546,9 +546,9 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return ModelCollection|RestfulRecord Empty ModelCollection if no relation found. Use `$this->hasRelation()` to truly find out if there is a relation.
 	 */
 	public function getRelation( $relationKey, $returnInCollectionByKey = null ) {
-		/** @var ModelCollection $relation */
+		/** @var ModelCollection|RestfulRecord $relation */
 		$relation = $this->getRelations()->get( $relationKey );
-		if ( $relation && $returnInCollectionByKey ) {
+		if ( $relation && $returnInCollectionByKey && $relation instanceof ModelCollection ) {
 			$relation = $relation->keyBy( $returnInCollectionByKey );
 		}
 		else if ( empty( $relation ) ) {
