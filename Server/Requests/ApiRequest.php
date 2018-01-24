@@ -5,7 +5,6 @@ namespace ixavier\Libraries\Server\Requests;
 use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Log;
-use Psr\Http\Message\ResponseInterface;
 
 /**
  * Class ApiRequest
@@ -183,16 +182,37 @@ abstract class ApiRequest
 		return $this->lastResponse;
 	}
 
-	/**
-	 * Makes the actual request
-	 *
-	 * @param string $method
-	 * @param string $url
-	 * @param array $options
-	 * @return ApiResponse
-	 */
-	protected function getApiResponse( $method, $url, $options ) {
-		$response = $this->httpClient->{$method}( $url, $options );
+    /**
+     * Wrapper to make a request with proper token
+     *
+     * @param string $method
+     * @param string $url
+     * @param array $options
+     * @return ApiResponse
+     * @throws \Exception
+     */
+    protected function getApiResponse($method, $url, $options)
+    {
+        if (!$this->getToken()) {
+            $this->login();
+        }
+
+        $options['headers']['Authorization'] = $this->getToken();
+
+        return $this->_getApiResponse($method, $url, $options);
+    }
+
+    /**
+     * Makes the actual request
+     *
+     * @param string $method
+     * @param string $url
+     * @param array $options
+     * @return ApiResponse
+     * @throws \Exception
+     */
+	private function _getApiResponse( $method, $url, $options ) {
+        $response = $this->httpClient->{$method}($url, $options);
 
 		$apiResponse = new ApiResponse();
 		$apiResponse->error = true;
@@ -224,4 +244,54 @@ abstract class ApiRequest
 
 		return $apiResponse;
 	}
+
+    /**
+     * Authenticates to API.
+     * @throws \Exception If not able to authenticate.
+     */
+    protected function login()
+    {
+        $credentials = [
+            'email' => 'website@donatospol.com',
+            'password' => 'donatospol_user_101',
+        ];
+        $url = $this->prepareUrl('login', $credentials);
+
+        // this is alright because info logs are not turned on production
+        Log::info("LOGIN: $url");
+
+        $response = $this->_getApiResponse('post', $url, static::$defaultRequestOptions)->data ?? new \stdClass();
+
+        if (!empty($response->success) && isset($response->data->token)) {
+            $this->setToken($response->data->token);
+
+            return $this;
+        }
+
+        throw new \Exception('Could not login to api. '.($response->error ?? ''));
+    }
+
+    /**
+     * @return string
+     */
+    private function getToken()
+    {
+        $token = session('token');
+        if (!empty($token)) {
+            $token = 'BEARER '.$token;
+        }
+
+        return $token;
+    }
+
+    /**
+     * @param string $token
+     * @return $this
+     */
+    private function setToken($token)
+    {
+        session(['token' => $token]);
+
+        return $this;
+    }
 }
