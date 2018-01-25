@@ -199,7 +199,15 @@ abstract class ApiRequest
 
         $options['headers']['Authorization'] = $this->getToken();
 
-        return $this->_getApiResponse($method, $url, $options);
+        $response = $this->_getApiResponse($method, $url, $options);
+
+        // probably token expired, get another one and try again
+        if ($response->error) {
+            $this->login();
+            $response = $this->_getApiResponse($method, $url, $options);
+        }
+
+        return $response;
     }
 
     /**
@@ -232,6 +240,10 @@ abstract class ApiRequest
 			if ( empty( $jsonResponse ) || $jsonResponse === FALSE ) {
 				$apiResponse->message = 'Internal Server Error';
 			}
+			if(!empty($jsonResponse->error)) {
+                $apiResponse->data = $jsonResponse;
+                $apiResponse->message = $jsonResponse->error;
+            }
 			else {
 				$apiResponse->data = $jsonResponse;
 				$apiResponse->error = false;
