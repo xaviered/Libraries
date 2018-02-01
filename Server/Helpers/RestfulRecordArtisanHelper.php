@@ -17,26 +17,28 @@ trait RestfulRecordArtisanHelper
 	/** @var App */
 	protected $app;
 
-	/**
-	 * Loads and creates app if it doesn't exits from given $default values
-	 * This is a helper method, and should be overwritten with app settings
-	 *
-	 * @param array $default
-	 * @return $this
-	 * @throws RestfulRecordNotSavedException
-	 */
-	protected function _buildApp( $default = [] ) {
+    /**
+     * Loads and creates app if it doesn't exits from given $default values
+     * This is a helper method, and should be overwritten with app settings
+     *
+     * @param array $default
+     * @param bool $create Will create app if not found
+     * @return $this
+     * @throws RestfulRecordNotSavedException
+     */
+	protected function _buildApp( $default = [], $create=true ) {
 		$appName = config( 'app.serviceName' );
 		$this->app = App::query()->find( $appName );
 
-		if ( !$this->app ) {
+		if ( !$this->app && $create ) {
 			// make app
 			$this->app = App::create( $default );
 			$this->app->save();
 
 			if ( !$this->app->exists() ) {
+			    $error = $this->app->getError();
 				unset( $this->app );
-				throw new RestfulRecordNotSavedException( "App $appName not able to save: ", $this->app->getError() );
+				throw new RestfulRecordNotSavedException( "App $appName not able to save: ", $error );
 			}
 		}
 
@@ -59,15 +61,17 @@ trait RestfulRecordArtisanHelper
 		return $this;
 	}
 
-	/**
-	 * Helper method to create a new collection of resources on the API
-	 *
-	 * @param array $resources
-	 * @param string $type If no type set on a resource, will use this
-	 * @param string $keyName Key in collection. Pass "-" to use the $resources keys
-	 * @return ModelCollection
-	 */
-	protected function buildResources( $resources, $type, $keyName = 'id' ) {
+    /**
+     * Helper method to create a new collection of resources on the API
+     *
+     * @param array $resources
+     * @param string $type If no type set on a resource, will use this
+     * @param string $keyName Key in collection. Pass "-" to use the $resources keys
+     * @param \Callable $callable Callable function with signature:
+     *  function (RestfulRecord $resource, array $resourceInfo): void
+     * @return ModelCollection
+     */
+	protected function buildResources( $resources, $type, $keyName = 'id', $callable=null ) {
 		$col = new ModelCollection();
 		foreach ( $resources as $resourceKey => $resourceInfo ) {
 			$resourceInfo[ '__app' ] = $this->app;
@@ -79,8 +83,11 @@ trait RestfulRecordArtisanHelper
 				$options .= ' createSlug';
 			}
 			$resource = Resource::create( $resourceInfo );
-			if ( !$resource->save( $options ) ) {
-				print( 'Could not save ' . $resourceInfo[ 'type' ] . '. ' . $resourceInfo[ 'slug' ] . '. ' . print_r( $resource->getError(), 1 ) );
+			$saved = $resource->save( $options );
+			// @todo: need to add throttle and handle bottle-neck scenarios
+			sleep(1);
+			if ( !$saved ) {
+				print( 'Could not save ' . $resourceInfo[ 'type' ] . '. ' . $resourceInfo[ 'slug' ] . '. ' . print_r( $resource->getError(), 1 ) . PHP_EOL);
 			}
 			else {
 				$key = $resource->id;
@@ -93,6 +100,10 @@ trait RestfulRecordArtisanHelper
 
 				$col->put( $key, $resource );
 			}
+
+			if(is_callable($callable)) {
+			    call_user_func_array($callable, [$resource, $resourceInfo, $saved]);
+            }
 		}
 
 		return $col;

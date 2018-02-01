@@ -54,14 +54,14 @@ class Common
 	public static function slugify( $str, $length = 140 ) {
 		$str = strtolower( $str );
 		// dasherize
-		$str = preg_replace( "/([A-Z])/", "-$1", $str );
-		$str = preg_replace( "/[-_\s]+/", "-", $str );
+//		$str = preg_replace( "/([A-Z])/", "-$1", $str );
+		$str = preg_replace( "/[\s]+/", "-", $str );
 
 		// cleanDiacritics
 		$str = self::cleanDiacritics( $str );
 
 		// spaces
-		$str = preg_replace( "/[^\w\s-]/", "-", $str );
+		$str = preg_replace( "/[^\w\s]/", "-", $str );
 
 		// no '-' at edges
 		$str = trim( $str, '-' );
@@ -74,7 +74,18 @@ class Common
 		return $str;
 	}
 
-	/**
+    /**
+     * Creates a random slug with the given prefix
+     * @param string $prefix
+     * @return string
+     */
+    public static function createSlug( $prefix = null )
+    {
+        $prefix = is_string( $prefix ) ? $prefix : 'o';
+        return uniqid( $prefix );
+    }
+
+        /**
 	 * Converts options into an array of key=>bool pair to check as flags.
 	 *
 	 * @param array|string $options An array of flag=>value pair or a space-separate string of flags to be ON; i.e. "flag1 flag2" ==> [flag1=>true, flag2=>true]

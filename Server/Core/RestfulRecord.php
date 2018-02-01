@@ -223,8 +223,12 @@ class RestfulRecord extends ContentHouseApiRequest
 		$specialAttributes = array_combine( static::$specialAttributes, static::$specialAttributes );
 		$this->__fixedAttributes = array_intersect_key( $attributes, $specialAttributes );
 
-		$this->setUrlBase( $attributes[ '__url' ] ?? '' );
-		$this->setPath( $attributes[ '__path' ] ?? '/' );
+        if (isset($attributes['__url'])) {
+            $this->setUrlBase($attributes['__url'] ?? '');
+        }
+        if (isset($attributes['__path'])) {
+            $this->setPath($attributes['__path'] ?? '/');
+        }
 
 		return $attributes;
 	}
@@ -386,6 +390,22 @@ class RestfulRecord extends ContentHouseApiRequest
 		return $this->where( $attributes )->get( $attributes )->first();
 	}
 
+    /**
+     * Save the model to the API
+     *
+     * @param  array $options Currently available:
+     *  - overrideIfExists
+     *  - createSlug: Creates a unique slug. If passing a string, will use as prefix.
+     * @return bool True if succeeded, false otherwise. Check object's error for details if failed.
+     */
+    public function save($options = [])
+    {
+//        print_r($options);
+        $options = Common::fixOptions($options, 'overrideIfExists createSlug');
+
+        return $this->__save($options);
+    }
+
 	/**
 	 * Save the model to the API
 	 *
@@ -395,7 +415,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 *  - createSlug: Creates a unique slug. If passing a string, will use as prefix.
 	 * @return bool True if succeeded, false otherwise. Check object's error for details if failed.
 	 */
-	public function save( $options = [] ) {
+	private function __save( $options = [] ) {
 		$options = Common::fixOptions( $options, 'ignoreIfExists overrideIfExists createSlug' );
 		$originalAttributes = $this->getAttributes();
 
@@ -405,21 +425,19 @@ class RestfulRecord extends ContentHouseApiRequest
 		$attributesForCacheKey = $this->getAllAttributes();
 		$attributes = RestfulRecord::cleanAttributes( $attributesForCacheKey );
 
-		// find existing object first
-		if ( $this->slug && ( $options[ 'ignoreIfExists' ] || $options[ 'overrideIfExists' ] ) ) {
-			$record = static::query( $fixedAttributes )->find( $this->slug );
-			if ( $record && $record->exists() ) {
-				if ( $options[ 'ignoreIfExists' ] ) {
-					return true;
-				}
-				else if ( $options[ 'overrideIfExists' ] ) {
-					$record->setAttributes( $attributesForCacheKey );
+        // find existing object first
+        if (!$options['ignoreIfExists'] && !empty($this->slug) && isset($attributesForCacheKey['type']) ) {
+            $record = static::query($attributesForCacheKey)->find($this->slug);
+            if ($record && $record->exists()) {
+                if ($options['overrideIfExists']) {
+                    $record->setAttributes($attributes);
 
-					return $record->save();
-				}
-			}
-		}
+                    return $record->__save('ignoreIfExists');
+                }
 
+                return true;
+            }
+        }
 
 		// send update
 		if ( $this->exists() && !empty( $this->slug ) ) {
@@ -429,8 +447,7 @@ class RestfulRecord extends ContentHouseApiRequest
 		// send create
 		else {
 			if ( $options[ 'createSlug' ] ) {
-				$prefix = is_string( $options[ 'createSlug' ] ) ? $options[ 'createSlug' ] : 'o';
-				$attributes[ 'slug' ] = uniqid( $prefix );
+                $attributes[ 'slug' ] = Common::createSlug($options[ 'createSlug' ] ?? null);
 			}
 			$methodName = 'storeRequest';
 			$methodArgs = [ $attributes ];
@@ -442,13 +459,15 @@ class RestfulRecord extends ContentHouseApiRequest
 		/** @var ApiResponse $response */
 		if ( !$response->error && $response->data ) {
 			$instance = $this->createFromApiRecord( $response->data, $attributesForCacheKey );
-			$this->setAttributes( $instance->getAllAttributes() )->exists( true );
+			$this->setAttributes( $instance->getAllAttributes() )
+                ->exists( true )
+            ;
 
 			return true;
 		}
 		else {
 			$response->headers = array_combine( array_keys( $response->headers ), array_flatten( $response->headers ) );
-			$this->setError( $response );
+			$this->setError( is_string($response->error) ? $response->error : $response );
 
 			return false;
 		}
