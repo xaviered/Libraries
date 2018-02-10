@@ -109,10 +109,18 @@ trait RestfulRecordArtisanHelper
 		return $col;
 	}
 
-	protected function removeResources($resources) {
-	    foreach($resources as $resourceKey => $resourceInfo) {
-	        $resource = Resource::query()->find($resourceInfo);
-	        if($resource) {
+    /**
+     * @param array $resources
+     * @param string $type If no type set on a resource, will use this
+     */
+    protected function removeResources($resources, $type = null)
+    {
+        foreach ($resources as $resourceKey => $resourceInfo) {
+            if (!isset($resourceInfo['type'])) {
+                $resourceInfo['type'] = $type;
+            }
+            $resource = Resource::query()->find($resourceInfo);
+            if ($resource) {
                 $resource->delete();
             }
         }

@@ -157,6 +157,9 @@ class RestfulRecord extends ContentHouseApiRequest
 		if ( is_object( $attributes ) && ( $attributes instanceof XURL ) ) {
 			$attributes = $attributes->getRestfulRecordAttributes();
 		}
+		else if ( $attributes instanceof RestfulRecord ) {
+            $attributes = $attributes->getAttributes();
+        }
 		else if ( is_object( $attributes ) ) {
 			$attributes = get_object_vars( $attributes );
 		}
@@ -319,7 +322,7 @@ class RestfulRecord extends ContentHouseApiRequest
 		}
 
 		if ( isset( $this->app ) && isset( $this->app->slug ) ) {
-			$this->setPath( rtrim( $app->getPath(), '/' ) . '/' . $app->slug );
+			$this->setPath( rtrim( $this->app->getPath(), '/' ) . '/' . $this->app->slug );
 		}
 
 		return $this;
@@ -363,7 +366,8 @@ class RestfulRecord extends ContentHouseApiRequest
 		}
 
 		// create instance
-		$tmp = static::create( $record->data ?? [], true );
+		$tmp = static::create( $record->data ?? [] );
+		$tmp->exists(true);
 		$tmp->relations = $relations;
 		$tmp->links = $record->links ?? [];
 

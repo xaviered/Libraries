@@ -1,36 +1,28 @@
-{{-- @var --}}
-<script src="{!! asset( 'ixavier-libraries/js/jssor-slider/jssor-slider.min.js' ) !!}"></script>
+{{--check out options at https://www.jssor.com/development/api-options.html--}}
 @if( $slides && count($slides) )
-	<?php $name = $name ?? rand() ?>
+	<?php $name =  ($name ?? 'jssor_slider' . rand()) ?>
     <script>
+        var {{ $name }};
         jQuery(document).ready(function ($) {
-            var options = {$AutoPlay: 1};
-            var jssor_slider1 = new $JssorSlider$('jssor_slider1', options);
+            var options = {!! json_encode($options ?? []) !!};
+            {{ $name }} = new $JssorSlider$('{{ $name }}_div', options || null);
         });
     </script>
-    <style type="text/css">
-        .content {
-            margin-left: 78px;
-        }
-        .jssor_slider div.slide img {
-            max-width: 1018px;
-        }
-    </style>
-    <div class="jssor_slider" id="jssor_slider1"
-         style="position: relative; top: 0px; left: 0px; width: 1018px; height: 508px;">
+
+    <div class="jssor_slider" id="{{ $name }}_div">
         <!-- Slides Container -->
-        <div class="slides" data-u="slides"
-             style="cursor: move; position: absolute; overflow: hidden; left: 0px; top: 0px; width: 1018px; height: 508px;">
+        <div class="slides" data-u="slides">
             @foreach( $slides as $slide )
-                @if( $slide->hasRelation('images') )
-                    <div class="slide">
-                        <img data-u="image" src="{{ asset( $slide->getRelation('images', 'size')->get('large')->src ) }}" />
-                    </div>
-                @elseif( isset($slide->image) )
-                    <div class="slide"><img data-u="image" src="{{ $slide->image }}"/></div>
-                @else
-                    <div class="slide"><img data-u="image" src="{{ $slide }}"/></div>
-                @endif
+                <div class="slide">
+                    @if( $slide->hasRelation('images') )
+                        <img data-u="image" src="{{ asset( $slide->getRelation('images', 'size')->get($size ?? 'large')->src ) }}" />
+                    @elseif( isset($slide->image) )
+                        <img data-u="image" src="{{ $slide->image }}"/>
+                    @else
+                        <img data-u="image" src="{{ $slide }}"/>
+                    @endif
+                    <div class="title">{{ $slide->title }}</div>
+                </div>
             @endforeach
         </div>
     </div>
