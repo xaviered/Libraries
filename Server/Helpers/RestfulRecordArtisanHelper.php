@@ -37,11 +37,11 @@ trait RestfulRecordArtisanHelper
 
 			if ( !$this->app->exists() ) {
 			    $error = $this->app->getError();
-				unset( $this->app );
+				$this->unsetApp();
 				throw new RestfulRecordNotSavedException( "App $appName not able to save: ", $error );
 			}
 		}
-
+		
 		return $this;
 	}
 
@@ -54,8 +54,8 @@ trait RestfulRecordArtisanHelper
 	 */
 	protected function _buildLogo( $default = [] ) {
 		// logo
-		if ( !$this->app->hasRelation( 'logo' ) ) {
-			$this->app->setRelation( 'logo', $this->buildResources( [ $default ], 'logo' )->first() );
+		if ( !$this->getApp()->hasRelation( 'logo' ) ) {
+			$this->getApp()->setRelation( 'logo', $this->buildResources( [ $default ], 'logo' )->first() );
 		}
 
 		return $this;
@@ -85,9 +85,9 @@ trait RestfulRecordArtisanHelper
 			$resource = Resource::create( $resourceInfo );
 			$saved = $resource->save( $options );
 			// @todo: need to add throttle and handle bottle-neck scenarios
-			sleep(1);
+			usleep(100000);
 			if ( !$saved ) {
-				print( 'Could not save ' . $resourceInfo[ 'type' ] . '. ' . $resourceInfo[ 'slug' ] . '. ' . print_r( $resource->getError(), 1 ) . PHP_EOL);
+				print( 'Could not save ' . $resourceInfo[ 'type' ] . '. ' . $resourceInfo[ 'slug' ] . '. ' . print_r( $resource->getError(true), 1 ) . PHP_EOL);
 			}
 			else {
 				$key = $resource->id;
@@ -119,6 +119,11 @@ trait RestfulRecordArtisanHelper
             if (!isset($resourceInfo['type'])) {
                 $resourceInfo['type'] = $type;
             }
+
+            if(!isset($resourceInfo['__app'])) {
+                $resourceInfo['__app'] = $this->getApp()->slug;
+            }
+
             $resource = Resource::query()->find($resourceInfo);
             if ($resource) {
                 $resource->delete();
@@ -139,4 +144,8 @@ trait RestfulRecordArtisanHelper
 	public function setApp( App $app ) {
 		$this->app = $app;
 	}
+
+	public function unsetApp() {
+        unset( $this->app );
+    }
 }

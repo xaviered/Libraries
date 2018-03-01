@@ -88,7 +88,7 @@ abstract class ApiRequest
 	 * @param array $queryParams
 	 * @return string
 	 */
-	public function prepareUrl( $postPath = null, $queryParams = null ) {
+	protected function prepareUrl( $postPath = null, $queryParams = null ) {
 		$url = rtrim( $this->getUrlBase() . rtrim( $this->getPath(), '/' ) . '/' . ( $postPath ? ltrim( $postPath, '/' ) : '' ), '/' );
 		if ( !is_null( $queryParams ) && is_array( $queryParams ) && count( $queryParams ) ) {
 			$url = rtrim( $url, '?' ) . '?' . http_build_query( $queryParams );
@@ -97,83 +97,110 @@ abstract class ApiRequest
 		return $url;
 	}
 
-	/**
-	 * A lis of attached entries
-	 *
-	 * @param array $queryParams
-	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
-	 */
+    /**
+     * A lis of attached entries
+     *
+     * @param array $queryParams
+     * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
+     * @throws \Exception
+     */
 	public function indexRequest( $queryParams = null ) {
 		$url = $this->prepareUrl( null, $queryParams );
-		Log::info( "INDEX: $url" );
+		$response = $this->getApiResponse( 'get', $url, static::$defaultRequestOptions );
+        Log::info( "INDEX: $url" );
 
-		return $this->getApiResponse( 'get', $url, static::$defaultRequestOptions );
+        return $response;
 	}
 
-	/**
-	 * Creates new entry
-	 *
-	 * @param array $postData
-	 * @param array $queryParams
-	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
-	 */
+    /**
+     * Creates new entry
+     *
+     * @param array $postData
+     * @param array $queryParams
+     * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
+     * @throws \Exception
+     */
 	public function storeRequest( $postData = null, $queryParams = null ) {
 		$options = static::$defaultRequestOptions;
 		$options[ 'headers' ][ 'Content-Type' ] = 'application/json';
 		$options[ 'body' ] = json_encode( $postData );
 
 		$url = $this->prepareUrl( null, $queryParams );
-		Log::info( "STORE: $url \n" . $options[ 'body' ] );
+		$response = $this->getApiResponse( 'post', $url, $options );
+        Log::info( "STORE: $url \n" . $options[ 'body' ] );
 
-		return $this->getApiResponse( 'post', $url, $options );
+        return $response;
 	}
 
-	/**
-	 * Shows current entry
-	 *
-	 * @param string $slug
-	 * @param array $queryParams
-	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
-	 */
+    /**
+     * Shows current entry
+     *
+     * @param string $slug
+     * @param array $queryParams
+     * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
+     * @throws \Exception
+     */
 	public function showRequest( $slug, $queryParams = null ) {
 		$url = $this->prepareUrl( $slug, $queryParams );
-		Log::info( "SHOW: $url" );
 
-		return $this->getApiResponse( 'get', $url, static::$defaultRequestOptions );
+        $response = $this->getApiResponse( 'get', $url, static::$defaultRequestOptions );
+        Log::info( "SHOW: $url" );
+
+        return $response;
 	}
 
-	/**
-	 * Updates current entry
-	 *
-	 * @param string $slug
-	 * @param array $postData
-	 * @param array $queryParams
-	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
-	 */
+    /**
+     * Updates current entry
+     *
+     * @param string $slug
+     * @param array $postData
+     * @param array $queryParams
+     * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
+     * @throws \Exception
+     */
 	public function updateRequest( $slug, $postData, $queryParams = null ) {
 		$options = static::$defaultRequestOptions;
 		$options[ 'headers' ][ 'Content-Type' ] = 'application/json';
 		$options[ 'body' ] = json_encode( $postData );
 
 		$url = $this->prepareUrl( $slug, $queryParams );
-		Log::info( "UPDATE: $url \n" . $options[ 'body' ] );
+		$response = $this->getApiResponse( 'patch', $url, $options );
+        Log::info( "UPDATE: $url \n" . $options[ 'body' ] );
 
-		return $this->getApiResponse( 'patch', $url, $options );
+        return $response;
 	}
 
-	/**
-	 * Deletes current entry
-	 *
-	 * @param string $slug
-	 * @param array $queryParams
-	 * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
-	 */
+    /**
+     * Deletes current entry
+     *
+     * @param string $slug
+     * @param array $queryParams
+     * @return ApiResponse If 'error' is true, can retrieve last response with $this->getLastResponse()
+     * @throws \Exception
+     */
 	public function destroyRequest( $slug, $queryParams = null ) {
 		$url = $this->prepareUrl( $slug, $queryParams );
-		Log::info( "DELETE: $url" );
 
-		return $this->getApiResponse( 'delete', $url, static::$defaultRequestOptions );
+        $response = $this->getApiResponse( 'delete', $url, static::$defaultRequestOptions );
+        Log::info( "DELETE: $url" );
+
+        return $response;
 	}
+
+    /**
+     * Logs in with given credentials
+     * @param null $credentials
+     * @return array|\stdClass
+     * @throws \Exception
+     */
+	public function loginRequest($credentials=null) {
+        $url = $this->prepareUrl('login', $credentials);
+
+        // this is alright because info logs are not turned on production
+        Log::info("LOGIN: $url");
+
+        return $this->_getApiResponse('post', $url, static::$defaultRequestOptions)->data ?? new \stdClass();
+    }
 
 	/**
 	 * @return Response
@@ -201,8 +228,8 @@ abstract class ApiRequest
 
         $response = $this->_getApiResponse($method, $url, $options);
 
-        // probably token expired, get another one and try again
-        if ($response->error) {
+        // token expired, get another one and try again
+        if ($response->error && $response->statusCode == 401) {
             $this->login();
             $response = $this->_getApiResponse($method, $url, $options);
         }
@@ -233,22 +260,34 @@ abstract class ApiRequest
 		];
 
 		if ( $response ) {
+            $apiResponse->data = $response->getBody()->getContents();
 			$apiResponse->headers = $response->getHeaders();
-			$apiResponse->data = $response->getBody()->getContents();
+            $apiResponse->statusCode = $response->getStatusCode();
 			$jsonResponse = json_decode( $apiResponse->data );
+
+			// handle special response codes
+            //
+
+            // @todo: handle this better
+            // 429: too many requests, try again later
+            if($apiResponse->statusCode == 429) {
+                $retryAfter = $apiResponse->headers['Retry-After'] ?? 1;
+                Log::info("retrying after seconds: " . print_r($retryAfter, 1));
+//                sleep(max($retryAfter, 3));
+            }
 
 			if ( empty( $jsonResponse ) || $jsonResponse === FALSE ) {
 				$apiResponse->message = 'Internal Server Error';
 			}
-			if(!empty($jsonResponse->error)) {
-                $apiResponse->data = $jsonResponse;
-                $apiResponse->message = $jsonResponse->error;
-            }
 			else {
-				$apiResponse->data = $jsonResponse;
-				$apiResponse->error = false;
-				$apiResponse->message = null;
-				$apiResponse->statusCode = $response->getStatusCode();
+                $apiResponse->data = $jsonResponse;
+                if(!empty($jsonResponse->error)) {
+                    $apiResponse->message = $jsonResponse->error;
+                }
+                else {
+                    $apiResponse->error = false;
+                    $apiResponse->message = null;
+                }
 			}
 		}
 
@@ -258,21 +297,12 @@ abstract class ApiRequest
 	}
 
     /**
-     * Authenticates to API.
+     * Authenticates to API with current app credentials
      * @throws \Exception If not able to authenticate.
      */
     protected function login()
     {
-        $credentials = [
-            'email' => 'website@donatospol.com',
-            'password' => 'donatospol_user_101',
-        ];
-        $url = $this->prepareUrl('login', $credentials);
-
-        // this is alright because info logs are not turned on production
-        Log::info("LOGIN: $url");
-
-        $response = $this->_getApiResponse('post', $url, static::$defaultRequestOptions)->data ?? new \stdClass();
+        $response = $this->loginRequest(config('services.content.credentials'));
 
         if (!empty($response->success) && isset($response->data->token)) {
             $this->setToken($response->data->token);

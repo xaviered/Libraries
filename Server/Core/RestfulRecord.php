@@ -337,7 +337,7 @@ class RestfulRecord extends ContentHouseApiRequest
 	 */
 	protected function createFromApiRecord( $record, $creatorAttributes ) {
 		// fix data
-		if ( isset( $record->data ) ) {
+        if ( isset( $record->data ) ) {
 			$record->data = array_merge( $creatorAttributes, (array)$record->data );
 		}
 
@@ -345,7 +345,11 @@ class RestfulRecord extends ContentHouseApiRequest
 		$relations = new ModelCollection();
 		if ( isset( $record->relations ) ) {
 			$tmpCreator = new RestfulRecord;
-			foreach ( $record->relations as $relationKey => $relation ) {
+//            if (isset($record->data->type) && $record->data->type == 'app' && isset($record->data->slug)) {
+//                $creatorAttributes['__app'] = $record->data->slug;
+//            }
+
+            foreach ( $record->relations as $relationKey => $relation ) {
 				// single
 				if ( !( $relation instanceof RestfulRecord ) && isset( $relation->data ) ) {
 					$relation = $tmpCreator->createFromApiRecord( $relation, $creatorAttributes );
@@ -404,7 +408,6 @@ class RestfulRecord extends ContentHouseApiRequest
      */
     public function save($options = [])
     {
-//        print_r($options);
         $options = Common::fixOptions($options, 'overrideIfExists createSlug');
 
         return $this->__save($options);
@@ -561,24 +564,26 @@ class RestfulRecord extends ContentHouseApiRequest
 		return $this;
 	}
 
-	/**
-	 * Gets relation object on this record.
-	 *
-	 * @param string $relationKey
-	 * @param string $returnInCollectionByKey Will wrap output in ModelCollection with the given column as its main key.
-	 * @return ModelCollection|RestfulRecord Empty ModelCollection if no relation found. Use `$this->hasRelation()` to truly find out if there is a relation.
-	 */
-	public function getRelation( $relationKey, $returnInCollectionByKey = null ) {
+    /**
+     * Gets relation object on this record.
+     *
+     * @param string $relationKey
+     * @param string $returnInCollectionByKey Will wrap output in ModelCollection with the given column as its main key.
+     * @param string $default If nothing found, will return new instance of given class if exists, otherwise will return $default.
+     * @return ModelCollection|RestfulRecord Empty ModelCollection if no relation found. Use `$this->hasRelation()` to truly find out if there is a relation.
+     */
+	public function getRelation( $relationKey, $returnInCollectionByKey = null, $default = ModelCollection::class ) {
 		/** @var ModelCollection|RestfulRecord $relation */
-		$relation = $this->getRelations()->get( $relationKey );
-		if ( $relation && $returnInCollectionByKey && $relation instanceof ModelCollection ) {
-			$relation = $relation->keyBy( $returnInCollectionByKey );
-		}
-		else if ( empty( $relation ) ) {
-			$relation = new ModelCollection();
-		}
+        if ($this->hasRelation($relationKey)) {
+            $relation = $this->getRelations()->offsetGet($relationKey);
+            if ($returnInCollectionByKey && $relation instanceof ModelCollection) {
+                $relation = $relation->keyBy($returnInCollectionByKey);
+            }
+        } else {
+            $relation = class_exists($default) ? new $default : $default;
+        }
 
-		return $relation;
+        return $relation;
 	}
 
 	/**
@@ -608,16 +613,19 @@ class RestfulRecord extends ContentHouseApiRequest
 	 * @return ModelCollection|RestfulRecord|null Original relation object. Null if no relation found.
 	 */
 	public function removeRelation( $relationKey, $deleteRelationRecord = false ) {
-		$relation = $this->getRelation( $relationKey );
+	    if($this->hasRelation($relationKey)) {
+            $relation = $this->getRelation($relationKey);
 
-		$this->relations->offsetUnset( $relationKey );
-		unset( $this->{$relationKey} );
+            $this->relations->offsetUnset($relationKey);
+            unset($this->{$relationKey});
 
-		if ( $deleteRelationRecord ) {
-			$relation->delete();
-		}
+            if ($deleteRelationRecord) {
+                $relation->delete();
+            }
+            return $relation;
+        }
 
-		return $relation;
+        return null;
 	}
 
 	/**
@@ -797,12 +805,22 @@ class RestfulRecord extends ContentHouseApiRequest
 		return static::$_collections[ $cachedKey ];
 	}
 
-	/**
-	 * @return mixed
-	 */
-	public function getError() {
-		return $this->_error;
-	}
+    /**
+     * @param bool $withLastRequest Returns array with error and last response
+     * @return mixed
+     */
+    public function getError($withLastRequest = false)
+    {
+        $error = $this->_error;
+        if ($withLastRequest) {
+            if (!is_array($error)) {
+                $error = ['error' => $error];
+            }
+            $error['response'] = $this->getLastResponse();
+        }
+
+        return $error;
+    }
 
 	/**
 	 * @param mixed $error

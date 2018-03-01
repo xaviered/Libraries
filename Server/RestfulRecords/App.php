@@ -39,6 +39,9 @@ class App extends RestfulRecord
      */
     public function find($attributes = [])
     {
+        if ( is_string( $attributes ) ) {
+            $attributes = [ 'slug' => $attributes ];
+        }
         $attributes = !is_array($attributes) ? [] : $attributes;
         $attributes = array_merge(['relations_max_depth' => 255], $attributes);
 
