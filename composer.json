@@ -5,14 +5,16 @@
   "license": "MIT",
   "type": "project",
   "require": {
-    "php": ">=7",
+    "php": ">=7.1",
     "guzzlehttp/guzzle": "~6.0",
     "illuminate/support": "^5.4",
     "symfony/http-foundation": "^3.2",
     "illuminate/console": "^5.4"
   },
   "autoload": {
-    "psr-4": { "ixavier\\Libraries\\" : "" },
+    "psr-4": {
+      "ixavier\\Libraries\\" : "./"
+    },
     "exclude-from-classmap": [
       "/Tests/"
     ]
