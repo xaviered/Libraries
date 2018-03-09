@@ -1,5 +1,4 @@
 <?php
-
 namespace ixavier\Libraries\Server\Core;
 
 use GuzzleHttp\Psr7\Response;
