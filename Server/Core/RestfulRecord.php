@@ -644,6 +644,7 @@ class RestfulRecord extends ContentHouseApiRequest
      */
 	public function src() {
         $src = $this->src;
+
         if (isset($this->type)) {
             $src = trim(config('services.aws.images-url'), '/').'/'.$src;
         }
