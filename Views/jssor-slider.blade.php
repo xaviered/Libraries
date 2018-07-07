@@ -15,9 +15,10 @@
             @foreach( $slides as $slide )
                 <div class="slide">
                     @if( $slide->hasRelation('images') )
-                        <img data-u="image" src="{{ asset( $slide->getRelation('images', 'size')->get($size ?? 'large')->src ) }}" />
-                    @elseif( isset($slide->image) )
-                        <img data-u="image" src="{{ $slide->image }}"/>
+                        <?php $img = $slide->getRelation('images', 'size')->get($size ?? 'large') ?>
+                        <img data-type="{{ $img->type }}" data-u="image" src="{{ $img->src() }}" />
+                    @elseif( $slide->image instanceof \ixavier\Libraries\Server\Core\RestfulRecord )
+                        <img data-type="{{ $slide->image->type }}" data-u="image" src="{{ $slide->image }}"/>
                     @else
                         <img data-u="image" src="{{ $slide }}"/>
                     @endif
