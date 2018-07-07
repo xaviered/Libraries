@@ -637,6 +637,20 @@ class RestfulRecord extends ContentHouseApiRequest
 		return $this->getRelations()->offsetExists( $relationKey );
 	}
 
+    /**
+     * Gets the src of this object
+     *
+     * @return string
+     */
+	public function src() {
+        $src = $this->src;
+        if (isset($this->type)) {
+            $src = trim(config('services.aws.images-url'), '/').'/'.$src;
+        }
+
+        return $src;
+    }
+
 	/**
 	 * @return XURL
 	 */

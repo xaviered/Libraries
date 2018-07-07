@@ -221,7 +221,14 @@ abstract class ApiRequest
     protected function getApiResponse($method, $url, $options)
     {
         if (!$this->getToken()) {
-            $this->login();
+            try {
+                $this->loginAppUser();
+            }
+            catch (\Exception $e) {
+                // if could not login, try to register and login again
+                $this->registerAppUser();
+                $this->loginAppUser();
+            }
         }
 
         $options['headers']['Authorization'] = $this->getToken();
@@ -230,7 +237,7 @@ abstract class ApiRequest
 
         // token expired, get another one and try again
         if ($response->error && $response->statusCode == 401) {
-            $this->login();
+            $this->loginAppUser();
             $response = $this->_getApiResponse($method, $url, $options);
         }
 
@@ -297,10 +304,24 @@ abstract class ApiRequest
 	}
 
     /**
+     * Registers the app
+     * @return array|\stdClass
+     * @throws \Exception
+     */
+	protected function registerAppUser() {
+        $url = $this->prepareUrl('register', config('services.content.credentials'));
+
+        // this is alright because info logs are not turned on production
+        Log::info("REGISTER: $url");
+
+        return $this->_getApiResponse('post', $url, static::$defaultRequestOptions)->data ?? new \stdClass();
+    }
+
+    /**
      * Authenticates to API with current app credentials
      * @throws \Exception If not able to authenticate.
      */
-    protected function login()
+    protected function loginAppUser()
     {
         $response = $this->loginRequest(config('services.content.credentials'));
 
