@@ -15,7 +15,7 @@
             @foreach( $slides as $slide )
                 <div class="slide">
                     @if( $slide->hasRelation('images') )
-                        <?php $img = $slide->getRelation('images', 'size')->get($size ?? 'large') ?>
+                        <?php $img = $slide->getRelation('images', 'size')->get($size ?? 'medium') ?>
                         <img data-type="{{ $img->type }}" data-u="image" src="{{ $img->src() }}" />
                     @elseif( $slide->image instanceof \ixavier\Libraries\Server\Core\RestfulRecord )
                         <img data-type="{{ $slide->image->type }}" data-u="image" src="{{ $slide->image }}"/>
