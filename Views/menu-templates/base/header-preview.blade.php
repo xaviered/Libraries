@@ -4,10 +4,10 @@
     <link rel="shortcut icon" href="{{ asset( 'images/favicon.png', true ) }}"/>
 
     <script type="text/javascript" src="'/ixavier-libraries/js/jquery/jquery.min.js'"></script>
-    @include( '/ixavier-libraries/menu-templates/head' )
-    @include( '/ixavier-libraries/menu-templates/head-includes' )
+    @include( '/ixavier-libraries/menu-templates/base/head' )
+    @include( '/ixavier-libraries/menu-templates/base/head-includes' )
     <title>{{ $template->name }}</title>
 </head>
 <body>
-@include( '/ixavier-libraries/menu-templates/header' )
+@include( '/ixavier-libraries/menu-templates/base/header' )
 

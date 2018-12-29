@@ -11,7 +11,7 @@ class MenuTemplateController extends BaseController
     {
         $template = (new MenuTemplate($slug))
             ->loadData($request->get('menu'))
-            ->setMenuMediaType($request->get('backgroundType') ?? 'web');
+            ->setMediaType($request->get('backgroundType') ?? 'web');
 
         return view('ixavier-libraries/menu-templates/template-preview', ['template' => $template]);
     }
