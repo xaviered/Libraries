@@ -1,4 +1,4 @@
-@include( '/ixavier-libraries/menu-templates/header' )
+@include( '/ixavier-libraries/menu-templates/base/header' )
 <div class="menu">
     <table>
         <?php $i = 0 ?>
@@ -32,4 +32,4 @@
         @endforeach
     </table>
 </div>
-@include( '/ixavier-libraries/menu-templates/footer' )
+@include( '/ixavier-libraries/menu-templates/base/footer' )
