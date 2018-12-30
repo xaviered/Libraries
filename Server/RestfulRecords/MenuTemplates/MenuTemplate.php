@@ -7,13 +7,15 @@ use ixavier\Libraries\Server\RestfulRecords\Media\Image;
 class MenuTemplate
 {
     public $name;
-    public $categories = [];
+    /** @var ProductCollection */
+    public $categories;
     public $menuMediaType;
 
     private static $baseTemplate;
 
     public function __construct(string $name)
     {
+        $this->categories = new ProductCollection();
         $this->name = $name;
     }
 

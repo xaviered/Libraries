@@ -24,25 +24,25 @@ class ProductCollection extends ModelCollection
         $this->categories = new ModelCollection();
 
         $headers = fgetcsv($fhandle);
-        while(($row = fgetcsv($fhandle))) {
+        while (($row = fgetcsv($fhandle))) {
             $product = new Product();
             $product->title = $row[0];
-            $product->description = $row[1]? '&nbsp;('.$row[1].')' : '';
+            $product->slug = str_slug($product->title, '_');
+            $product->description = $row[1] ? '&nbsp;('.$row[1].')' : '';
             $product->price = [];
             $prices = strpos($row[2], ';') ? explode(';', $row[2]) : [$row[2]];
-            foreach($prices as $price) {
-                if($price == '-') {
+            foreach ($prices as $price) {
+                if ($price === '-' || $price == '0') {
                     $product->price[] = '';
-                }
-                else {
+                } elseif (!empty($price)) {
                     $product->price[] = '$'.$price;
                 }
             }
-            $product->category = $row[8]??'';
-            $product->sku = $row[9]??'';
-            $product->extra = $row[10]??'';
-            $product->sort = $row[11]??'';
-            $product->notes = $row[12]??'';
+            $product->category = $row[8] ?? '';
+            $product->sku = $row[9] ?? '';
+            $product->extra = $row[10] ?? '';
+            $product->sort = $row[11] ?? '';
+            $product->notes = $row[12] ?? '';
 
             /** @var ModelCollection $category */
             if ($this->offsetExists($product->category)) {
@@ -52,6 +52,7 @@ class ProductCollection extends ModelCollection
                 $category->title = $product->category;
                 $category->slug = str_slug($product->category, '_');
                 $category->products = new ModelCollection();
+                $category->listType = 'block';
                 $this->offsetSet($product->category, $category);
             }
 
