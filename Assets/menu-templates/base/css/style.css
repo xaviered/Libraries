@@ -1,0 +1,44 @@
+body {
+    margin: 0;
+    padding: 0;
+}
+
+#content {
+    position: relative;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+footer {
+    padding: 20px 0 10px 0;
+}
+
+a, body.print a:visited {
+    color: #FFFFFF;
+}
+
+div.break {
+    clear: both;
+    height: 1px;
+}
+
+p.break {
+    clear: both;
+}
+
+/*
+print section
+ */
+
+body.print header, body.print footer {
+    display: none;
+}
+
+body.print div.container {
+    margin: 0;
+}
+
+body.print #menu-template {
+    margin-left: 0px;
+}

@@ -30,7 +30,7 @@ class MenuTemplate
 
     public function getTemplatePath(): string
     {
-        return '/menu-templates/'.$this->name;
+        return '/ixavier-libraries/menu-templates/'.$this->name;
     }
 
     public function getTemplateCss()

@@ -1,0 +1,157 @@
+#menu-template {
+    width: 816px;
+}
+
+/* Tablet + Laptop View */
+@media (min-width: 1024px) {
+    #menu-template {
+        /*margin-left: 100px;*/
+    }
+}
+
+#menu-template > div.background {
+    top: 0;
+    left: 0;
+    width: 8.5in;
+    height: 11.2in;
+    position: absolute;
+    z-index: 0;
+}
+
+#menu-template.background-web div.background {
+    top: 80px;
+    margin: 0 auto;
+    left: auto;
+}
+
+#menu-template > div.background img.background {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#menu-template > div.background div.background {
+    width: 6.5in;
+    height: 100%;
+    background-color: white;
+    opacity: .90;
+    position: absolute;
+    top: 0;
+    left: 1in;
+    z-index: 2;
+}
+
+div.menu {
+    margin-left: 1.25in;
+    margin-top: 0;
+    width: 6in;
+    font-size: 11pt;
+}
+
+div.menu div.header-note,
+div.menu div.footer-note
+{
+    text-align: center;
+    font-size: 14pt;
+    font-style: italic;
+    font-weight: bold;
+}
+div.menu div.footer-note div.address {
+    font-weight: normal;
+    font-size: 12pt;
+    margin-top: 1.5em;
+}
+
+div.menu div.footer-note p {
+    margin: .5em 0;
+}
+
+div.menu > table {
+    width: 100%;
+}
+
+div.menu table td.price-type {
+    text-align: right;
+    font-weight: bold;
+}
+
+div.menu table tr.category td.title {
+    padding-top: 16pt;
+    font-weight: bold;
+    color: #366831;
+    text-transform: uppercase;
+    text-align: center;
+    font-size: 15pt;
+}
+div.menu table tr.category-0 td.title {
+    padding-top: 0pt;
+}
+
+div.menu table tr.products td div.product {
+    float: left;
+    width: 2.75in;
+    padding: 3px 0;
+    text-align: center;
+}
+
+div.menu table tr.product td.icon {
+    width: 15px;
+}
+
+div.menu table tr.product td.number {
+    text-align: right;
+    visibility: hidden;
+    padding: 3px 0;
+}
+
+div.menu table tr.products-main_course td.number {
+    visibility: visible;
+}
+
+div.menu table tr.product td.details {
+    width: 95%;
+    text-align: center;
+}
+
+div.menu table tr.product td.details table td.line {
+    width: 100%;
+    background-image: url("/ixavier-libraries/menu-templates/base/images/dots-gray.png");
+    background-repeat: repeat-x;
+    background-position-y: bottom;
+}
+
+div.menu table tr.product td.price {
+    width: 50px;
+    text-align: right;
+}
+
+div.menu table tr.product td.price-0 {
+    width: 20px;
+}
+
+/*
+print section
+ */
+
+body.print a, body.print a:visited {
+    color: #000000;
+}
+
+body.print #menu-template > #content {
+    top: 250px;
+}
+
+body.print #menu-template > #content div.menu {
+    font-size: 12pt;
+}
+
+body.print #menu-template > div.background {
+    height: 11in;
+}
+
+body.print #menu-template > div.background div.background {
+    top: 247px;
+}

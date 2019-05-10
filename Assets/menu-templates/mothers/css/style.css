@@ -1,0 +1,178 @@
+#menu-template {
+    width: 816px;
+    margin: 0 auto;
+    color: #FFFFFF;
+    min-height: 10in;
+}
+
+#menu-template > #content {
+    top: 120px;
+}
+
+#menu-template > div.background {
+    top: 0;
+    left: 0;
+    width: 8.5in;
+    height: 10in;
+    position: absolute;
+    z-index: 0;
+}
+
+#menu-template.background-web div.background {
+    top: 80px;
+    margin: 0 auto;
+    left: auto;
+}
+
+#menu-template > div.background img.background {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#menu-template > div.background div.background {
+    display: none;
+}
+
+div.menu {
+    margin: 0 auto;
+    width: 7.5in;
+    font-size: 12pt;
+}
+
+div.menu div.header-note,
+div.menu div.footer-note
+{
+    text-align: center;
+    font-size: 12pt;
+    font-style: italic;
+}
+div.menu div.footer-note div.address {
+    font-weight: normal;
+    font-size: 12pt;
+    margin-top: 1.5em;
+}
+
+div.menu div.footer-note p {
+    margin: .5em 0;
+}
+
+div.menu > table {
+    width: 100%;
+}
+
+div.menu table td.price-type {
+    text-align: right;
+    font-weight: bold;
+}
+
+div.menu table tr.category td.title {
+    padding-top: 16pt;
+    font-weight: bold;
+    color: #ffb2b0;
+    text-transform: uppercase;
+    text-align: center;
+    font-size: 14pt;
+}
+div.menu table tr.category-0 td.title {
+    padding-top: 0pt;
+}
+
+div.menu table tr.products td div.product {
+    float: left;
+    width: 3.5in;
+    padding: 3px 0;
+    text-align: center;
+}
+
+div.menu table tr.products td div.product div.title {
+    font-weight: bold;
+}
+
+div.menu table tr.products td div.product div.description {
+    font-size: 12pt;
+    font-style: italic;
+    color: #bde3c4;
+}
+
+div.menu table tr.product td.icon {
+    width: 15px;
+}
+
+div.menu table tr.product td.number {
+    text-align: right;
+    visibility: hidden;
+    padding: 3px 0;
+}
+
+div.menu table tr.products-main_course td.number {
+    visibility: visible;
+    vertical-align: top;
+}
+div.menu table tr.products-main_course td.price {
+    vertical-align: top;
+}
+
+div.menu table tr.products-main_course td.title {
+    width: 1%;
+    white-space: nowrap;
+    text-align:left;
+    font-weight: bold;
+}
+
+div.menu table tr.products-main_course td.description {
+    text-align:left;
+    padding-left: 20px;
+    padding-bottom: 5px;
+    font-size: 12pt;
+    font-style: italic;
+    color: #bde3c4;
+}
+
+div.menu table tr.products td.category-dessert div.product {
+    width: 2.3in;
+}
+
+div.menu table tr.product td.details {
+    width: 95%;
+    text-align: center;
+}
+
+div.menu table tr.product td.details table td.line {
+    width: 100%;
+    background-image: url("/ixavier-libraries/menu-templates/base/images/dots-gray.png");
+    background-repeat: repeat-x;
+    background-position-y: bottom;
+}
+
+div.menu table tr.product td.price {
+    width: 50px;
+    text-align: right;
+}
+
+div.menu table tr.product td.price-0 {
+    width: 20px;
+}
+
+/*
+print section
+ */
+
+body.print #menu-template > #content {
+    top: 250px;
+}
+
+body.print #menu-template > #content div.menu {
+    /*font-size: 14pt;*/
+}
+
+body.print #menu-template > div.background {
+    height: 11in;
+}
+
+body.print #menu-template > div.background div.background {
+    top: 247px;
+}
